@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MandAPI GEO — Sua empresa aparece no ChatGPT?</title>
+<meta name="description" content="Descubra gratuitamente se o ChatGPT, Gemini e Perplexity conseguem encontrar e citar sua empresa. Análise de SEO técnico e visibilidade em IA.">
+<style>
+  :root {
+    --bg: #0a0f1c;
+    --panel: #121a2b;
+    --line: #223049;
+    --text: #e8eef8;
+    --muted: #8fa3bf;
+    --accent: #10b981;
+    --accent-2: #34d399;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+    --info: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px; }
+  header { padding: 28px 0; display: flex; align-items: center; gap: 10px; }
+  .logo { font-weight: 700; letter-spacing: -0.02em; font-size: 18px; }
+  .logo span { color: var(--accent); }
+  .badge-pt { margin-left: auto; font-size: 12px; color: var(--muted); border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; }
+
+  .hero { padding: 56px 0 32px; }
+  h1 { font-size: clamp(30px, 5.5vw, 52px); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 14px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .sub { font-size: clamp(17px, 2.4vw, 21px); color: var(--muted); margin: 0 0 32px; }
+  .sub strong { color: var(--text); font-weight: 600; }
+
+  form { display: flex; gap: 10px; flex-wrap: wrap; }
+  input {
+    flex: 1 1 240px; background: var(--panel); border: 1px solid var(--line);
+    color: var(--text); padding: 15px 16px; border-radius: 10px; font-size: 15px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #5d7291; }
+  button {
+    background: var(--accent); color: #04140d; border: 0; padding: 15px 26px;
+    border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: background .15s; white-space: nowrap;
+  }
+  button:hover:not(:disabled) { background: var(--accent-2); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 13.5px; margin-top: 14px; }
+
+  .status { margin: 26px 0; padding: 15px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); display: none; }
+  .status.on { display: block; }
+  .status.err { border-color: #6b2230; background: #1c1119; color: #fca5a5; }
+
+  .results { margin: 38px 0 80px; display: none; }
+  .results.on { display: block; }
+
+  .score-card { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; padding: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .dial { --pct: 0; width: 132px; height: 132px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: conic-gradient(var(--accent) calc(var(--pct) * 1%), #1e2a40 0); }
+  .dial-inner { width: 104px; height: 104px; border-radius: 50%; background: var(--panel); display: grid; place-items: center; }
+  .dial-num { font-size: 34px; font-weight: 700; line-height: 1; }
+  .dial-grade { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .score-text { flex: 1 1 300px; }
+  .score-text h2 { margin: 0 0 8px; font-size: 19px; }
+  .score-text p { margin: 0; color: var(--muted); }
+
+  .areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
+  .area { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .area-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .area-name { font-size: 13.5px; color: var(--muted); }
+  .area-val { font-size: 22px; font-weight: 700; }
+  .bar { height: 7px; background: #1e2a40; border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+
+  h3.section { margin: 40px 0 16px; font-size: 17px; }
+  .issue { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
+  .issue.critical { border-left-color: var(--danger); }
+  .issue.high { border-left-color: var(--warn); }
+  .issue.medium { border-left-color: #eab308; }
+  .issue.low { border-left-color: var(--info); }
+  .issue-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .sev { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 8px; border-radius: 5px; }
+  .sev.critical { background: #4c1119; color: #fca5a5; }
+  .sev.high { background: #4a2c07; color: #fcd34d; }
+  .sev.medium { background: #423a08; color: #fde68a; }
+  .sev.low { background: #1e293b; color: #cbd5e1; }
+  .issue-head strong { font-size: 15.5px; }
+  .issue p { margin: 6px 0 0; color: var(--muted); font-size: 14.5px; }
+  .issue .fix { color: #a7f3d0; }
+  .issue .fix b { color: var(--accent); font-weight: 600; }
+
+  .cta { margin-top: 34px; padding: 28px; border-radius: 14px; background: linear-gradient(135deg, #0f2b22, #121a2b); border: 1px solid #1d4d3c; }
+  .cta h3 { margin: 0 0 8px; font-size: 19px; }
+  .cta p { margin: 0 0 18px; color: var(--muted); }
+  .cta a { display: inline-block; background: var(--accent); color: #04140d; text-decoration: none; padding: 13px 24px; border-radius: 9px; font-weight: 700; }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 60px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">MandAPI <span>GEO</span></div>
+    <div class="badge-pt">Português (Brasil)</div>
+  </header>
+
+  <section class="hero">
+    <h1>Sua empresa aparece no <em>ChatGPT</em>?</h1>
+    <p class="sub"><strong>Descubra gratuitamente.</strong> Analisamos seu site para o Google e para as IAs que seus clientes já usam.</p>
+
+    <form id="scan-form" autocomplete="off">
+      <input id="url" name="url" placeholder="www.suaempresa.com.br" required>
+      <input id="keyword" name="keyword" placeholder="Palavra-chave principal (opcional)">
+      <button type="submit" id="submit">Analisar grátis</button>
+    </form>
+    <p class="hint">SEO técnico + visibilidade em IA (GEO) em cerca de 10 segundos. Sem cadastro.</p>
+  </section>
+
+  <div class="status" id="status"></div>
+
+  <section class="results" id="results">
+    <div class="score-card">
+      <div class="dial" id="dial"><div class="dial-inner"><div><div class="dial-num" id="dial-num">0</div><div class="dial-grade" id="dial-grade">nota</div></div></div></div>
+      <div class="score-text">
+        <h2 id="domain">—</h2>
+        <p id="summary">—</p>
+      </div>
+    </div>
+
+    <div class="areas" id="areas"></div>
+
+    <h3 class="section">Prioridades de correção</h3>
+    <div id="issues"></div>
+
+    <div class="cta">
+      <h3>Quer que a gente corrija isso para você?</h3>
+      <p>Você recebe o plano completo de correção por página, monitoramento mensal e acompanhamento da sua visibilidade em IA.</p>
+      <a href="#scan-form" id="cta-link">Quero o plano completo</a>
+    </div>
+  </section>
+
+  <footer>
+    MandAPI GEO · Generative Engine Optimization para o mercado brasileiro · engine <span id="engine">rules-v1</span>
+  </footer>
+</div>
+
+<script>
+const form = document.getElementById('scan-form');
+const urlInput = document.getElementById('url');
+const kwInput = document.getElementById('keyword');
+const submit = document.getElementById('submit');
+const statusBox = document.getElementById('status');
+const results = document.getElementById('results');
+const SEV = { critical: 'CRÍTICO', high: 'ALTO', medium: 'MÉDIO', low: 'BAIXO' };
+
+function setStatus(msg, isError) {
+  statusBox.textContent = msg;
+  statusBox.className = 'status on' + (isError ? ' err' : '');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function render(report) {
+  const s = report.score;
+  document.getElementById('dial').style.setProperty('--pct', s.overall);
+  document.getElementById('dial-num').textContent = s.overall;
+  document.getElementById('dial-grade').textContent = 'nota ' + s.grade;
+  document.getElementById('domain').textContent = report.domain;
+  document.getElementById('summary').textContent = s.summary;
+  document.getElementById('engine').textContent = report.engine;
+
+  const areas = report.areas || [];
+  document.getElementById('areas').innerHTML = areas.map(a => {
+    const name = a.area === 'geo' ? 'Visibilidade em IA (GEO)' : a.label;
+    return '<div class="area"><div class="area-top"><span class="area-name">' + esc(name) +
+      '</span><span class="area-val">' + a.score + '</span></div>' +
+      '<div class="bar"><i style="width:' + a.score + '%"></i></div></div>';
+  }).join('');
+
+  const issues = (report.issues || []).slice(0, 12);
+  document.getElementById('issues').innerHTML = issues.length ? issues.map(i =>
+    '<div class="issue ' + esc(i.severity) + '">' +
+      '<div class="issue-head"><span class="sev ' + esc(i.severity) + '">' + (SEV[i.severity] || i.severity) + '</span>' +
+      '<strong>' + esc(i.title) + '</strong></div>' +
+      (i.detail ? '<p>' + esc(i.detail) + '</p>' : '') +
+      (i.fix ? '<p class="fix"><b>Como corrigir:</b> ' + esc(i.fix) + '</p>' : '') +
+    '</div>'
+  ).join('') : '<div class="issue low"><p>Nenhum problema relevante encontrado. Excelente.</p></div>';
+
+  results.classList.add('on');
+  if (report.ai_summary) {
+    const box = document.createElement('div');
+    box.className = 'issue low';
+    box.innerHTML = '<div class="issue-head"><strong>Análise adicional (IA)</strong></div><p>' + esc(report.ai_summary) + '</p>';
+    document.getElementById('issues').prepend(box);
+  }
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = urlInput.value.trim();
+  if (!url) return;
+
+  submit.disabled = true;
+  results.classList.remove('on');
+  setStatus('Analisando ' + url + ' … isso leva alguns segundos.');
+
+  try {
+    const res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url, keyword: kwInput.value.trim() || null, ai_summary: false })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus('Não foi possível analisar: ' + (data.detail || res.status), true);
+      return;
+    }
+    setStatus('Análise concluída (' + data.elapsed_ms + ' ms).');
+    render(data);
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    setStatus('Falha de conexão: ' + err.message, true);
+  } finally {
+    submit.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

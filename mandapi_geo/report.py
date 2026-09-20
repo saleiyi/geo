@@ -1,0 +1,157 @@
+"""Geração de relatório.
+
+Duas saídas:
+  - to_markdown(): determinística, sem LLM, sempre disponível. É o MVP.
+  - generate_ai_summary(): opcional, só roda se LLM_API_KEY estiver configurada.
+
+O produto NUNCA depende do LLM para funcionar. O LLM só melhora a redação.
+"""
+
+from __future__ import annotations
+
+import httpx
+
+from .config import load_settings
+from .models import ScanReport
+
+SEV_LABEL: dict[str, str] = {
+    "critical": "CRÍTICO",
+    "high": "ALTO",
+    "medium": "MÉDIO",
+    "low": "BAIXO",
+}
+
+STATUS_LABEL: dict[str, str] = {
+    "pass": "OK",
+    "warn": "ATENÇÃO",
+    "fail": "FALHA",
+    "info": "INFO",
+}
+
+_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def to_markdown(report: ScanReport) -> str:
+    s = report.score
+    out: list[str] = []
+
+    out.append(f"# Relatório GEO/SEO — {report.domain}")
+    out.append("")
+    out.append(f"**Score geral: {s.overall}/100 — nota {s.grade}**")
+    if report.requested_keyword:
+        out.append(f"Palavra-chave alvo: `{report.requested_keyword}`")
+    out.append(f"URL analisada: {report.target_url}")
+    out.append("")
+
+    out.append("## Resumo")
+    out.append("")
+    out.append(s.summary or "—")
+    out.append("")
+
+    out.append("## Pontuação por área")
+    out.append("")
+    out.append("| Área | Score |")
+    out.append("| --- | ---: |")
+    for area in report.areas:
+        out.append(f"| {area.label} | {area.score}/100 |")
+    out.append("")
+
+    out.append("## Prioridades de correção")
+    out.append("")
+    if not report.issues:
+        out.append("Nenhum problema relevante encontrado. Excelente.")
+        out.append("")
+    else:
+        for idx, issue in enumerate(report.issues, start=1):
+            sev = SEV_LABEL.get(issue.severity, issue.severity)
+            out.append(f"### {idx}. [{sev}] {issue.title}")
+            out.append("")
+            out.append(f"- **Impacto no score:** ~{issue.impact} pontos")
+            if issue.detail:
+                out.append(f"- **Diagnóstico:** {issue.detail}")
+            if issue.fix:
+                out.append(f"- **Como corrigir:** {issue.fix}")
+            out.append("")
+
+    out.append("## Detalhamento das verificações")
+    out.append("")
+    for area in report.areas:
+        out.append(f"### {area.label} — {area.score}/100")
+        out.append("")
+        out.append("| Status | Verificação | Valor |")
+        out.append("| --- | --- | --- |")
+        for check in area.checks:
+            status = STATUS_LABEL.get(check.status, check.status)
+            value = (check.value or "—").replace("|", "/")
+            out.append(f"| {status} | {check.label} | {value} |")
+        out.append("")
+
+    if report.ai_summary:
+        out.append("## Análise adicional (IA)")
+        out.append("")
+        out.append(report.ai_summary)
+        out.append("")
+
+    out.append("---")
+    out.append("")
+    out.append(
+        f"Gerado por MandAPI GEO · engine `{report.engine}` · "
+        f"{report.elapsed_ms} ms · {report.scanned_at.isoformat()}"
+    )
+    return "\n".join(out)
+
+
+def _build_prompt(report: ScanReport) -> str:
+    s = report.score
+    top = report.issues[:6]
+    problems = "\n".join(
+        f"- [{SEV_LABEL.get(i.severity, i.severity)}] {i.title}: {i.detail}"
+        for i in top
+    ) or "- nenhum problema crítico encontrado"
+
+    return (
+        "Você é um consultor de SEO e GEO (Generative Engine Optimization) "
+        "atendendo pequenas e médias empresas no Brasil.\n\n"
+        f"Site analisado: {report.domain}\n"
+        f"Score geral: {s.overall}/100 (nota {s.grade})\n"
+        f"SEO técnico: {s.seo}/100\n"
+        f"Visibilidade em IA (GEO): {s.geo}/100\n\n"
+        "Principais problemas encontrados:\n"
+        f"{problems}\n\n"
+        "Escreva um diagnóstico de 3 parágrafos em português do Brasil, "
+        "em tom direto e comercial, para o dono do negócio (não para um técnico).\n"
+        "Parágrafo 1: o que está acontecendo com o site em busca e em IA.\n"
+        "Parágrafo 2: por que isso custa dinheiro (perda de clientes).\n"
+        "Parágrafo 3: as 3 ações mais urgentes, em ordem.\n"
+        "Não use listas. Não invente números que não estejam acima."
+    )
+
+
+def generate_ai_summary(report: ScanReport) -> str | None:
+    """Retorna o texto da IA ou None. Nunca levanta exceção."""
+    settings = load_settings()
+    if not settings.llm_enabled:
+        return None
+
+    url = settings.llm_base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": settings.llm_model,
+        "messages": [{"role": "user", "content": _build_prompt(report)}],
+        "temperature": 0.4,
+        "max_tokens": 700,
+    }
+
+    try:
+        response = httpx.post(
+            url,
+            json=payload,
+            headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+            timeout=60,
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        return (content or "").strip() or None
+    except Exception:
+        # Falha de LLM não pode derrubar o relatório.
+        return None
