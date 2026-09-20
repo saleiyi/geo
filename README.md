@@ -9,6 +9,18 @@
 
 ---
 
+## 0. Como aparece para o cliente
+
+**落地页（pt-BR）**
+
+![Landing page](docs/screenshots/landing-hero.png)
+
+**扫描结果（分数 + 优先级问题清单）**
+
+![Relatorio com score](docs/screenshots/landing-results.png)
+
+---
+
 ## 1. 现在能跑什么
 
 | 能力 | 状态 | 说明 |
