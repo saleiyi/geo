@@ -7,12 +7,30 @@
 
   const AREA = { seo: '技术 SEO', geo: 'AI 搜索就绪度', content: '内容' };
   const SEVERITY = { critical: '严重', high: '高', medium: '中', low: '低' };
-  const STATUS = { pass: '已通过', warn: '需关注', fail: '未通过', info: '仅供参考' };
+  const STATUS = { pass: '已通过', warn: '需关注', fail: '未通过', info: '仅供参考', unknown:'无法确认' };
   const SCOPE = '单页 HTML 与公开辅助文件。不执行 JavaScript、不抓取全站、不追踪排名或引用。启发式评分不保证排名。';
   let currentReport = null;
   let isDemo = false;
   let controller = null;
   let printState = null;
+  const BASELINE_KEY = 'mandapi-geo-baseline-v1';
+  const MAX_BASELINE_BYTES = 1024 * 1024;
+  let baseline = null;
+  let comparison = null;
+  let storedBaselinePresent = false;
+  let baselineMutation = 0;
+  const DIFF_LABELS = { resolved:'本次检查已解决', new_issues:'新增问题', persistent:'仍然存在', unverified:'无法确认', worsened:'变得更严重', improved:'严重程度降低' };
+  const COMPARE_REASONS = {
+    missing_version:'此旧报告缺少必要版本信息，请重新分析页面以建立兼容基线。',
+    schema_mismatch:'报告格式版本不同，无法确认两个版本之间的变化。',
+    engine_mismatch:'分析引擎不同，请建立新基线，使用相同规则进行比较。',
+    scoring_mismatch:'评分规则发生变化，不能直接比较这些分数或确认修复。',
+    target_mismatch:'请求的 URL 不同，请比较同一页面以确认变化。',
+    redirect_mismatch:'重定向后的最终 URL 不同，无法确认这些变化来自同一页面。',
+    not_newer:'当前分析时间必须晚于基线，请在修改后重新分析。',
+    coverage_changed:'检查覆盖范围改变，可以查看可比较的证据，但不能可靠比较分数。',
+    weights_changed:'检查权重改变，可以查看可比较的证据，但不比较分数。'
+  };
 
   function node(tag, className, text) {
     const element = document.createElement(tag);
@@ -54,7 +72,10 @@
     $('demo-button').disabled = busy;
     $('url').readOnly = busy;
     $('results').setAttribute('aria-busy', String(busy));
-    $('submit').textContent = busy ? '分析中…' : '分析页面 →';
+    $('submit').textContent = busy ? '分析中…' : '免费分析这个页面 →';
+    $('retest-baseline').disabled = busy;
+    $('save-baseline').disabled = busy;
+    $('import-baseline').disabled = busy;
   }
 
   function validateUrl(raw) {
@@ -163,7 +184,10 @@
     renderScores();
     renderIssues();
     renderChecks();
+    renderTopPriorities();
     $('results').hidden = false;
+    renderBaseline();
+    renderComparison();
     document.body.classList.add('has-report');
     $('report-title').focus({ preventScroll:true });
     $('results').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
@@ -192,6 +216,7 @@
     }
     $('url').value = url;
     $('results').hidden = true;
+    renderBaseline();
     setBusy(true);
     showStatus('loading', '正在读取页面并检查信号…', '用时取决于目标网站响应，你可以随时取消等待。');
     controller = new AbortController();
@@ -238,6 +263,210 @@
     form.requestSubmit();
   });
 
+  function baselineStatus(message, error = false) {
+    $('baseline-status').textContent = message;
+    $('baseline-status').classList.toggle('field-error', error);
+  }
+
+  function reportVersion(report) {
+    return `${plain(report.schema_version)} / ${plain(report.scoring_version)} / ${plain(report.engine)}`;
+  }
+
+  function renderBaseline() {
+    const meta = $('baseline-meta');
+    meta.replaceChildren();
+    meta.hidden = !baseline;
+    $('clear-baseline').hidden = !baseline && !storedBaselinePresent;
+    $('retest-baseline').hidden = !baseline;
+    $('save-baseline').hidden = !currentReport || isDemo || $('results').hidden;
+    if (!baseline) return;
+    [['基线页面',baseline.target_url],['最终 URL',baseline.facts?.final_url || baseline.target_url],['基线日期',dateLabel(baseline.scanned_at)],['版本：格式 / 评分 / 引擎',reportVersion(baseline)]].forEach(([label,value]) => {
+      const item = node('div');
+      item.append(node('dt','',label),node('dd','',value));
+      meta.append(item);
+    });
+  }
+
+  function storeBaseline(report) {
+    const candidate = window.GeoComparison.validateReport(report);
+    const serialized = JSON.stringify(candidate);
+    if (new Blob([serialized]).size > MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+    baseline = candidate;
+    try {
+      window.localStorage.setItem(BASELINE_KEY,serialized);
+      storedBaselinePresent = true;
+      baselineStatus('已在此浏览器保存基线。修改页面后，可以重新分析。');
+    } catch {
+      baselineStatus('浏览器阻止了存储。基线仅在当前标签页有效，刷新或切换语言后会丢失。先前保存的副本可能仍然存在。');
+    }
+    renderBaseline();
+    renderComparison();
+  }
+
+  function readSavedBaseline() {
+    try {
+      const raw = window.localStorage.getItem(BASELINE_KEY);
+      if (raw) {
+        storedBaselinePresent = true;
+        if (new Blob([raw]).size > MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+        baseline = window.GeoComparison.validateReport(JSON.parse(raw));
+        baselineStatus('已恢复当前浏览器中的基线，没有启动任何分析。');
+      }
+    } catch {
+      baselineStatus('无法读取已保存的基线，可以导入有效 JSON，或仅在当前标签页使用基线。');
+    }
+    renderBaseline();
+  }
+
+  function baselineError(error) {
+    baselineStatus(error.message === 'baseline_too_large' ? '文件或报告超过 1 MiB 限制，请选择更小的报告。' : '无法使用此文件，请导入有效的 MandAPI GEO JSON 报告，不接受演示数据或不完整文件。',true);
+  }
+
+  function diffGroups() {
+    if (!comparison?.compatible) return [];
+    return [['resolved',comparison.resolved],['new_issues',comparison.new_issues],['persistent',comparison.persistent],['unverified',comparison.unverified]].map(([key,items]) => [key,items || []]);
+  }
+
+  function diffExplanation(diff) {
+    if (['previous_not_scored','previous_unknown','check_missing_before'].includes(diff.reason)) return '基线中的证据不足，不能把此问题认定为新增问题或退化。';
+    if (diff.change === 'worsened') return '两次分析之间，此项状态变得更严重。';
+    if (diff.change === 'improved') return '状态有所改善，但仍有需要关注的问题。';
+    if (diff.change === 'resolved') return '同一检查项在最近分析中已通过，但这不能证明变化的原因。';
+    if (diff.change === 'new_issue') return '此检查项新发现了一个问题。';
+    if (diff.reason === 'check_missing') return '新报告中缺少此检查项，不能确认问题已修复。';
+    if (diff.reason === 'not_scored' || diff.reason === 'unknown_status' || diff.change === 'unverified') return '新结果不能确认此问题是否已解决。';
+    return '问题仍然存在，请先比较证据再采取行动。';
+  }
+
+  function comparisonReason() {
+    if (comparison?.compatible && !comparison.score_comparable && !COMPARE_REASONS[comparison.score_reason]) return '没有足够的等价数据来比较分数，请只查看能够确认的检查项变化。';
+    return COMPARE_REASONS[comparison?.reason] || COMPARE_REASONS[comparison?.score_reason] || '已比较检查项。只有版本、覆盖范围和权重相同时才比较分数。';
+  }
+
+  function appendEvidence(container,label,check,issue) {
+    const side = node('div','diff-evidence');
+    side.append(node('h5','',label),node('p','diff-status',check ? (STATUS[check.status] || '无法确认') : '缺少检查项'),node('p','',plain(check?.value,'暂无可用证据。')));
+    if (issue?.severity) side.append(node('p','',`严重程度: ${SEVERITY[issue.severity] || plain(issue.severity)}`));
+    if (check?.hint || issue?.fix) side.append(node('p','muted',plain(check?.hint || issue?.fix)));
+    container.append(side);
+  }
+
+  function renderComparison() {
+    const section = $('comparison-section');
+    comparison = null;
+    section.hidden = !baseline || !currentReport || isDemo || $('results').hidden;
+    if (section.hidden) return;
+    try { comparison = window.GeoComparison.compareReports(baseline,currentReport); } catch {
+      section.hidden = false;
+      $('comparison-notice').textContent = '无法可靠比较此报告，请重新分析页面并保存新基线。';
+      $('comparison-scores').replaceChildren(); $('comparison-counts').replaceChildren(); $('comparison-details').replaceChildren();
+      $('download-comparison').disabled = true;
+      return;
+    }
+    $('download-comparison').disabled = false;
+    $('comparison-notice').textContent = comparisonReason();
+    const scores = $('comparison-scores'); scores.replaceChildren();
+    const counts = $('comparison-counts'); counts.replaceChildren();
+    const details = $('comparison-details'); details.replaceChildren();
+    const metadata=node('dl','comparison-meta');
+    [['基线页面',baseline.target_url],['基线最终 URL',baseline.facts?.final_url || baseline.target_url],['基线日期',dateLabel(baseline.scanned_at)],['基线版本',reportVersion(baseline)],['当前页面',currentReport.target_url],['当前最终 URL',currentReport.facts?.final_url || currentReport.target_url],['当前日期',dateLabel(currentReport.scanned_at)],['当前版本',reportVersion(currentReport)]].forEach(([label,value])=>{const row=node('div');row.append(node('dt','',label),node('dd','',value));metadata.append(row);});
+    details.append(metadata);
+    details.append(node('p','small muted','基线来自此浏览器或导入的 JSON 文件，服务器不认证其来源或完整性。'));
+    if (!comparison.compatible) return;
+    if (comparison.score_comparable) {
+      Object.entries(comparison.score_delta || {}).filter(([key]) => key !== 'content').forEach(([key,value]) => {
+        const item=node('div','delta-card');
+        item.append(node('span','',key==='overall'?'总分':areaLabel(key)),node('strong','',`${value > 0 ? '+' : ''}${value}`),node('span','small muted','分，较基线变化'));
+        scores.append(item);
+      });
+    }
+    ['resolved','new_issues','persistent','unverified','worsened'].forEach((key) => {
+      const item=node('div','diff-count');
+      item.append(node('strong','',comparison.counts?.[key] || 0),node('span','',DIFF_LABELS[key]));
+      counts.append(item);
+    });
+    details.append(node('p','small muted','“变得更严重”属于“仍然存在”的子集，证据缺失绝不视为修复。'));
+    diffGroups().forEach(([key,items]) => {
+      const group=node('section','diff-group');
+      group.append(node('h4','',`${DIFF_LABELS[key]} (${items.length})`));
+      if (!items.length) group.append(node('p','small muted','此类别没有问题。'));
+      items.forEach((diff,index) => {
+        const item=node('details','diff-item'); item.dataset.diffId=`${key}-${index}`;
+        const summary=node('summary');
+        summary.append(node('span','',plain(diff.label,diff.id)),node('span','area-tag',areaLabel(diff.area)));
+        if (diff.change==='worsened' || diff.change==='improved') summary.append(node('span','tag',DIFF_LABELS[diff.change]));
+        const body=node('div','diff-body'); body.append(node('p','small muted',diffExplanation(diff)));
+        const evidence=node('div','diff-evidence-grid');
+        appendEvidence(evidence,'之前 · 基线',diff.before,diff.before_issue);
+        appendEvidence(evidence,'之后 · 当前分析',diff.after,diff.after_issue);
+        body.append(evidence); item.append(summary,body); group.append(item);
+      });
+      details.append(group);
+    });
+  }
+
+  function comparisonMarkdown() {
+    if (!comparison || !baseline) return [];
+    const lines=['## 修改复测比较','',`- 基线页面: ${markdownText(baseline.target_url)}`,`- 基线最终 URL: ${markdownText(baseline.facts?.final_url || baseline.target_url)}`,`- 基线日期: ${markdownText(baseline.scanned_at)}`,`- 基线版本: ${markdownText(reportVersion(baseline))}`,`- 当前页面: ${markdownText(currentReport.target_url)}`,`- 当前最终 URL: ${markdownText(currentReport.facts?.final_url || currentReport.target_url)}`,`- 当前日期: ${markdownText(currentReport.scanned_at)}`,`- 当前版本: ${markdownText(reportVersion(currentReport))}`,'',comparisonReason(),'','观察到的变化不能证明因果关系、排名、流量或 AI 引用。'];
+    lines.push('','基线来自此浏览器或导入的 JSON 文件，服务器不认证其来源或完整性。');
+    if (!comparison.compatible) { lines.push('','未确认任何修复或分数变化。'); return lines; }
+    if (comparison.score_comparable) Object.entries(comparison.score_delta || {}).filter(([key])=>key!=='content').forEach(([key,value])=>lines.push(`- ${key==='overall'?'总分':areaLabel(key)}: ${value>0?'+':''}${value}`));
+    diffGroups().forEach(([key,items]) => {
+      lines.push('',`### ${DIFF_LABELS[key]} (${items.length})`,'');
+      if (!items.length) lines.push('此类别没有问题。');
+      items.forEach((diff) => {
+        lines.push('',`#### ${markdownText(diff.label || diff.id)}`,'',diffExplanation(diff));
+        [['之前 · 基线',diff.before,diff.before_issue],['之后 · 当前分析',diff.after,diff.after_issue]].forEach(([label,check,issue])=>lines.push('',`**${label}**`, `- Status: ${check?(STATUS[check.status] || '无法确认'):'缺少检查项'}`,`- 证据： ${markdownText(check?.value)}`,`- 严重程度: ${markdownText(issue?.severity ? SEVERITY[issue.severity] || issue.severity : null)}`,`- 建议： ${markdownText(check?.hint || issue?.fix)}`));
+      });
+    });
+    return lines;
+  }
+
+  $('save-baseline').addEventListener('click', () => {
+    baselineMutation += 1;
+    if (currentReport && !isDemo) { try { storeBaseline(currentReport); } catch(error) { baselineError(error); } }
+  });
+  $('import-baseline').addEventListener('change', async (event) => {
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if (!file) return;
+    const mutation = ++baselineMutation;
+    try {
+      if (file.size>MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+      const raw = await file.text();
+      if (mutation !== baselineMutation) return;
+      storeBaseline(JSON.parse(raw));
+    } catch(error) { if (mutation === baselineMutation) baselineError(error); }
+  });
+  $('clear-baseline').addEventListener('click', () => {
+    baselineMutation += 1;
+    baseline=null;
+    try { window.localStorage.removeItem(BASELINE_KEY); storedBaselinePresent=false; baselineStatus('已清除此浏览器中的基线。'); }
+    catch { baselineStatus('已清除当前标签页的基线。浏览器阻止了存储访问，如需删除先前保存的副本，请在浏览器设置中清除此站点数据。'); }
+    renderBaseline(); renderComparison();
+  });
+  $('retest-baseline').addEventListener('click', () => { if (baseline && !controller) { $('url').value=baseline.target_url; form.requestSubmit(); } });
+  $('download-comparison').addEventListener('click', () => {
+    if (!comparison) return;
+    const url=URL.createObjectURL(new Blob([comparisonMarkdown().join('\n')],{type:'text/markdown;charset=utf-8'}));
+    const link=node('a');link.href=url;link.download='mandapi-geo-comparison.md';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+
+  function renderTopPriorities() {
+    const list=$('top-priorities');
+    if (!list) return;
+    list.replaceChildren();
+    const issues=getIssues().slice(0,3);
+    $('top-priorities-section').hidden=!issues.length;
+    issues.forEach((issue,index)=>{
+      const card=node('article','priority-card');
+      card.append(node('span','step-number',String(index+1).padStart(2,'0')),node('h4','',plain(issue.title)),node('span','severity-tag',SEVERITY[issue.severity] || plain(issue.severity)),node('p','',plain(issue.fix)),node('p','small muted',plain(issue.detail)));
+      list.append(card);
+    });
+  }
+
+  readSavedBaseline();
+
   function markdownText(value) {
     return plain(value, '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\`*_{}\[\]()#+.!|])/g, '\\$1').replace(/\r?\n/g, '  \n');
   }
@@ -253,6 +482,8 @@
     getIssues().forEach((issue) => text.push(`### ${markdownText(issue.title)}`, '', `领域: ${areaLabel(issue.area)} · 严重程度: ${SEVERITY[issue.severity] || '未提供'}`, '', markdownText(issue.detail), '', `**复查建议：** ${markdownText(issue.fix)}`, ''));
     text.push('## 全部检查项', '');
     getChecks().forEach((check) => text.push(`### ${markdownText(check.label)}`, '', `领域: ${areaLabel(check.area)} · Status: ${STATUS[check.status] || '仅供参考'}`, '', `**证据：** ${markdownText(check.value)}`, '', `**建议：** ${markdownText(check.hint)}`, ''));
+    text.push('', `报告版本: ${markdownText(r.schema_version)}`, `评分版本: ${markdownText(r.scoring_version)}`);
+    if (comparison && !isDemo) text.push('', ...comparisonMarkdown());
     return text.join('\n');
   }
 
@@ -276,12 +507,13 @@
   $('print-report').addEventListener('click', () => window.print());
   window.addEventListener('beforeprint', () => {
     if (!currentReport || $('results').hidden || printState) return;
-    printState = { area:$('area-filter').value, severity:$('severity-filter').value, opened:[...$('checks').querySelectorAll('details[open]')].map((item) => item.dataset.checkId) };
+    printState = { area:$('area-filter').value, severity:$('severity-filter').value, opened:[...$('checks').querySelectorAll('details[open]')].map((item) => item.dataset.checkId), comparisonOpened:[...$('comparison-details').querySelectorAll('details[open]')].map((item) => item.dataset.diffId) };
     $('area-filter').value = 'all';
     $('severity-filter').value = 'all';
     renderIssues();
     renderChecks();
     $('checks').querySelectorAll('details').forEach((item) => { item.open = true; });
+    $('comparison-details').querySelectorAll('details').forEach((item) => { item.open = true; });
   });
   window.addEventListener('afterprint', () => {
     if (!printState) return;
@@ -290,6 +522,7 @@
     renderIssues();
     renderChecks();
     $('checks').querySelectorAll('details').forEach((item) => { item.open = printState.opened.includes(item.dataset.checkId); });
+    $('comparison-details').querySelectorAll('details').forEach((item) => { item.open = printState.comparisonOpened.includes(item.dataset.diffId); });
     printState = null;
   });
 
@@ -298,16 +531,16 @@
     $('scan-feedback').hidden = true;
     renderReport({
       target_url:'https://example.com/', domain:'example.com', scanned_at:'2026-09-26T09:00:00Z', elapsed_ms:3200, engine:'演示 — 虚构数据',
-      score:{ overall:76, seo:84, geo:68, content:0, grade:'B', summary:'演示示例：技术基础较好，页面描述与内容身份信息仍可改进。分数均为虚构。' },
+      score:{ overall:76, seo:84, geo:68, content:0, grade:'B', summary:'HTML 检查演示：描述长度、声明的作者信息和语义结构。分数与检测值均为虚构。' },
       facts:{ final_url:'https://example.com/' },
       areas:[
-        { area:'seo', label:AREA.seo, score:84, checks:[{ id:'demo-https', area:'seo', label:'HTTPS 连接', status:'pass', value:'示例：页面使用 HTTPS。', hint:'保持证书有效，并重定向 HTTP 版本。' },{ id:'demo-description', area:'seo', label:'页面描述', status:'warn', value:'虚构示例：描述过于笼统，没有说明服务内容。', hint:'编写具体描述，概括此页面的用途。' },{ id:'demo-canonical', area:'seo', label:'规范 URL', status:'pass', value:'https://example.com/ (虚构 URL)', hint:'确认该 URL 对应页面的主要版本。' }] },
-        { area:'geo', label:AREA.geo, score:68, checks:[{ id:'demo-author', area:'geo', label:'内容负责人', status:'warn', value:'示例：未找到明确的内容负责人信息。', hint:'适当时标明作者、相关经验或内容负责机构。' },{ id:'demo-bots', area:'geo', label:'AI 爬虫规则', status:'info', value:'示例：此报告没有读取真实 robots.txt 文件。', hint:'分别检查针对搜索和模型训练的访问决定。' },{ id:'demo-headings', area:'geo', label:'标题结构', status:'pass', value:'示例：一个主标题与描述清晰的章节。', hint:'用标题帮助读者找到答案，避免刻意堆砌词语。' },{ id:'demo-answer', area:'geo', label:'回答读者需求', status:'warn', value:'示例：正文没有说明服务包含哪些内容。', hint:'先回答核心问题，再说明条件、示例与限制。' }] }
+        { area:'seo', label:AREA.seo, score:84, checks:[{ id:'demo-https', area:'seo', label:'HTTPS 连接', status:'pass', value:'示例：页面使用 HTTPS。', hint:'保持证书有效，并重定向 HTTP 版本。' },{ id:'demo-description', area:'seo', label:'Meta description 长度', status:'warn', value:'30 个字符；葡语页面（虚构示例）。', hint:'长度只是编辑参考，不代表对描述含义或质量的判断。' },{ id:'demo-canonical', area:'seo', label:'规范 URL', status:'pass', value:'https://example.com/ (虚构 URL)', hint:'确认该 URL 对应页面的主要版本。' }] },
+        { area:'geo', label:AREA.geo, score:68, checks:[{ id:'demo-author', area:'geo', label:'HTML 中声明的作者信息', status:'warn', value:'未找到声明的作者信息（虚构示例）。', hint:'检查 HTML 中是否有适当的作者标识，此检查不会核实资质。' },{ id:'demo-bots', area:'geo', label:'AI 爬虫规则', status:'info', value:'示例：此报告没有读取真实 robots.txt 文件。', hint:'分别检查针对搜索和模型训练的访问决定。' },{ id:'demo-extractable', area:'geo', label:'HTML 中文本的占比', status:'pass', value:'文本占 HTML 的 8.2%（虚构示例）。', hint:'这一占比是结构性启发指标，不衡量主题理解程度或引用概率。' },{ id:'demo-semantic', area:'geo', label:'语义 HTML', status:'warn', value:'未找到 <main> 或 <article> 标签（虚构示例）。', hint:'用合适的语义元素标明主要内容，不要仅为了得分而改变信息。' }] }
       ],
       issues:[
-        { id:'demo-description', area:'seo', severity:'high', title:'让页面描述更具体', detail:'此虚构示例中，描述过于笼统，没有说明页面提供的内容。', fix:'用有用的一句话概括服务与目标人群，避免堆砌关键词。' },
-        { id:'demo-author', area:'geo', severity:'medium', title:'明确内容由谁负责', detail:'此虚构示例中，没有清楚标明负责的个人或组织。', fix:'补充可核实的身份信息与相关背景。' },
-        { id:'demo-answer', area:'geo', severity:'low', title:'更清楚地说明服务', detail:'此虚构示例中，读者需要到其他页面寻找基本信息。', fix:'根据真实情况说明包含内容、适用人群与相关条件。' }
+        { id:'demo-author', area:'geo', severity:'medium', title:'检查作者信息声明', detail:'此虚构示例中，HTML 未检测到声明的作者信息。', fix:'在适合该页面的情况下，于可见内容及相应标记中提供真实作者信息。' },
+        { id:'demo-semantic', area:'geo', severity:'medium', title:'用语义 HTML 标明主要内容', detail:'此虚构示例中，HTML 不含 <main> 或 <article>。', fix:'检查结构，适当使用 <main> 标明主要内容，或用 <article> 标明独立内容。' },
+        { id:'demo-description', area:'seo', severity:'low', title:'检查 meta description 长度', detail:'此虚构葡语示例中，描述有 30 个字符，工具没有评估其含义。', fix:'请结合页面与语言检查描述，长度本身不能决定质量或搜索结果中显示的摘要。' }
       ]
     }, true);
   });

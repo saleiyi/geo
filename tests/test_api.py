@@ -61,7 +61,7 @@ def test_localized_pages_have_valid_metadata(client, locale, lang, slug):
 
 
 def test_assets_are_executable_with_nosniff(client):
-    for path in ['app.js','app.en.js','app.zh.js']:
+    for path in ['app.js','app.en.js','app.zh.js','comparison.js']:
         r = client.get('/assets/' + path)
         assert r.status_code == 200
         assert r.headers['content-type'].startswith('text/javascript')
@@ -106,6 +106,8 @@ def test_api_returns_full_localized_report(client, monkeypatch, language):
     body = r.json()
     assert body['scope'] == 'single_page'
     assert body['engine'] == 'rules-v2'
+    assert body['schema_version'] == 1
+    assert body['scoring_version'] == 'readiness-2026-09-26'
     assert body['limitations']
     assert body['score']['overall'] == original.score.overall
     assert len(body['areas']) == 2

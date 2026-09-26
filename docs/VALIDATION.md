@@ -2,6 +2,8 @@
 
 本轮是本地可部署版本验收，未发布到公网。分支：`codex/professional-geo`。
 
+后续首页转化与基线复测验收见 [Conversion V2](CONVERSION_V2.md)：145 项 Python、26 项 JavaScript 及三语浏览器流程通过。以下保留基础版本的真实扫描和部署记录。
+
 ## 自动化回归
 
 执行 `.venv\Scripts\python.exe -m pytest tests -q`：**145 passed**。

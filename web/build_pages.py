@@ -82,6 +82,22 @@ UI = {
     "zh": {"lang":"zh-CN", "prefix":"/zh", "home":"首页", "method":"分析方法", "privacy":"隐私说明", "guide":"GEO 指南", "analyze":"分析一个页面", "skip":"跳至正文", "library":"MANDAPI GEO 知识库", "nav":"主导航", "side":"知识库导航", "back":"← 返回页面分析", "review":"更新于 2026 年 9 月 26 日 · MandAPI GEO 团队", "next":"从一个具体行动开始", "cta":"分析一个页面，查看每条建议背后的实际证据。", "tagline":"扎实的基础，面向新的搜索方式。", "disclaimer":"单页审计，不保证排名。", "locale":"简体中文", "language":"选择语言"},
 }
 
+COMPARISON_METHOD = {
+    'pt':'<h2>O que uma comparação confirma?</h2><p>Uma referência é uma cópia compacta de um relatório anterior. A comparação exige a mesma URL solicitada e final, versões compatíveis de formato, motor e pontuação e uma nova análise com data posterior. Diferenças de nota só são mostradas quando cobertura e pesos também correspondem.</p><p>Um problema só é marcado como resolvido quando a mesma verificação passa depois. Um resultado ausente, desconhecido ou apenas informativo não confirma reparo. Problemas mais graves também continuam na categoria de problemas presentes, portanto os totais dessas categorias não devem ser somados. Alterações observadas não provam causalidade ou melhoria em rankings e citações.</p><p>Relatórios antigos sem versões podem ser importados como referência, mas não produzem uma comparação confirmada. O arquivo importado é validado localmente; isso não autentica a origem dos seus dados. Mantenha cópias dos relatórios reais para revisão.</p>',
+    'en':'<h2>What does a comparison confirm?</h2><p>A baseline is a compact copy of an earlier report. Comparison requires the same requested and final URLs, compatible report, engine, and scoring versions, and a newer audit date. Score differences appear only when coverage and weights also match.</p><p>An issue is marked resolved only when the same check later passes. A missing, unknown, or informational result does not confirm a fix. Worsened issues are also included among persistent issues, so those category totals should not be added together. Observed changes do not prove causality or better rankings and citations.</p><p>Older reports without version information can be imported as baselines but do not produce confirmed comparisons. Imported files are validated locally; this does not authenticate their data source. Keep copies of real reports for review.</p>',
+    'zh':'<h2>比较能够确认什么？</h2><p>基线是先前报告的紧凑副本。比较要求请求 URL 和最终 URL 相同，报告格式、引擎及评分版本兼容，而且当前分析时间晚于基线。只有检查覆盖范围和权重也一致时，才显示分数变化。</p><p>只有同一检查项在后续分析中通过，才标为已解决。缺失、未知或仅供参考的结果都不能确认修复。更严重的问题也属于仍然存在的问题，因此这两个类别的数量不能相加。观察到变化不证明因果关系，也不证明排名或引用改善。</p><p>没有版本信息的旧报告可以导入为基线，但不能产生已确认的比较。导入文件在本地验证，这不代表其数据来源经过认证。请保留真实报告副本以便复查。</p>'
+}
+BASELINE_PRIVACY = {
+    'pt':'<h2>Referência salva neste navegador</h2><p>Apenas quando você clica em salvar ou importa um arquivo, uma cópia compacta de até 1 MiB é gravada no localStorage deste navegador. Há uma única referência; a próxima substitui a anterior. Ela contém URLs, data, versões, notas, verificações, evidências e problemas e permanece após recarregar a página ou trocar de idioma.</p><p>Use “Limpar referência” para removê-la. Se o navegador bloquear o armazenamento, a referência funciona apenas na aba atual e pode ser perdida ao sair. Não há sincronização entre dispositivos ou histórico no servidor. Arquivos JSON importados são lidos e validados no navegador, sem upload. Restaurar ou importar não inicia análise; reanalisar a URL exige uma ação sua.</p>',
+    'en':'<h2>A baseline saved in this browser</h2><p>Only when you click save or import a file is a compact copy of up to 1 MiB written to this browser’s localStorage. There is one baseline; the next replaces it. It contains URLs, dates, versions, scores, checks, evidence, and issues, and persists across reloads and language changes.</p><p>Use “Clear baseline” to remove it. If browser storage is blocked, the baseline works only in the current tab and can be lost when you leave. There is no device synchronization or server-side history. Imported JSON is read and validated in the browser without upload. Restoring or importing never starts an audit; rechecking requires your action.</p>',
+    'zh':'<h2>保存在当前浏览器的基线</h2><p>只有主动点击保存或导入文件时，才会把最多 1 MiB 的紧凑报告写入当前浏览器的 localStorage。仅保存一份基线，下一份会替换上一份。其中包含 URL、日期、版本、分数、检查项、证据和问题，刷新页面或切换语言后仍保留。</p><p>使用“清除基线”即可删除。如果浏览器禁止存储，基线仅在当前标签页有效，离开后可能丢失。不跨设备同步，服务器不保存历史。导入的 JSON 在浏览器本地读取并验证，不会上传。恢复或导入基线不会启动分析，复测需要你的主动操作。</p>'
+}
+HOME_META = {
+    'pt':('Auditoria SEO e GEO grátis por página | MandAPI GEO','Analise uma URL: SEO técnico, preparação para buscas com IA e estrutura do conteúdo. Veja prioridades, evidências e compare após corrigir. Sem cadastro.'),
+    'en':('Free SEO & GEO Page Checker, AI Readiness Audit | MandAPI GEO','Check one page for technical SEO and AI search readiness. Get evidence, prioritized fixes, and compare a new audit against your saved baseline. No login.'),
+    'zh':('免费 SEO 与 GEO 页面检测工具 · AI 搜索准备度分析 | MandAPI GEO','输入一个公开页面 URL，检查技术 SEO、AI 搜索准备度和内容结构。查看优先修正项、检查证据，保存基线并对比复测结果，无需登录。')
+}
+
 def language_links(language, slug=""):
     paths = {"pt": "/" + slug, "en": "/en" + ("/" + slug if slug else ""), "zh": "/zh" + ("/" + slug if slug else "")}
     return '<nav class="language-switch" aria-label="'+UI[language]["language"]+'">' + ''.join(f'<a href="{paths[key]}" lang="{UI[key]["lang"]}" hreflang="{UI[key]["lang"]}"'+(' aria-current="page"' if key == language else '')+f'>{label}</a>' for key,label in [("pt","PT"),("en","EN"),("zh","中文")]) + '</nav>'
@@ -92,6 +108,12 @@ def alternates(slug=""):
 def create_editorial_pages():
     for slug, versions in PAGES.items():
         for language, (title, description, body) in versions.items():
+            if slug=='metodologia': body+=COMPARISON_METHOD[language]
+            if slug=='privacidade':
+                body+=BASELINE_PRIVACY[language]
+                body=body.replace('Recarregar ou fechar a página remove o relatório da interface.','Recarregar ou fechar a página remove o relatório atual da interface, exceto a referência que você escolheu salvar no navegador.')
+                body=body.replace('Reloading or closing the page removes it from the interface.','Reloading or closing the page removes the current report from the interface, except for a baseline you explicitly chose to save in your browser.')
+                body=body.replace('刷新或关闭页面后，界面中的报告会消失。','刷新或关闭页面后，当前报告会从界面消失；你主动保存在浏览器中的基线除外。')
             u=UI[language]
             prefix=u['prefix']
             home=prefix or '/'
@@ -103,7 +125,7 @@ def create_editorial_pages():
             links=''.join(f'<a href="{prefix}/{key}"'+(' aria-current="page"' if slug==key else '')+f'>{u[label]}</a>' for key,label in [('guia-geo','guide'),('metodologia','method'),('privacidade','privacy')])
             schema=json.dumps({"@context":"https://schema.org","@type":"WebPage","name":title,"description":description,"url":"__SITE_URL__"+route,"inLanguage":u['lang']},ensure_ascii=False)
             html=f'''<!doctype html>
-<html lang="{u['lang']}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} — MandAPI GEO</title><meta name="description" content="{description}"><meta name="robots" content="__INDEX_ROBOTS__">__GOOGLE_VERIFICATION__<link rel="canonical" href="__SITE_URL__{route}">{alternates(slug)}<meta property="og:type" content="article"><meta property="og:site_name" content="MandAPI GEO"><meta property="og:title" content="{title}"><meta property="og:description" content="{description}"><meta property="og:url" content="__SITE_URL__{route}"><meta property="og:image" content="__SITE_URL__/assets/{og_image}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/styles.css"><script type="application/ld+json">{schema}</script></head>
+<html lang="{u['lang']}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} — MandAPI GEO</title><meta name="description" content="{description}"><meta name="robots" content="__INDEX_ROBOTS__">__GOOGLE_VERIFICATION__<link rel="canonical" href="__SITE_URL__{route}">{alternates(slug)}<meta property="og:type" content="article"><meta property="og:site_name" content="MandAPI GEO"><meta property="og:title" content="{title}"><meta property="og:description" content="{description}"><meta property="og:url" content="__SITE_URL__{route}"><meta property="og:image" content="__SITE_URL__/assets/{og_image}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{title}"><meta name="twitter:description" content="{description}"><meta name="twitter:image" content="__SITE_URL__/assets/{og_image}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/styles.css"><script type="application/ld+json">{schema}</script></head>
 <body><a class="skip-link" href="#main">{u['skip']}</a><header class="site-header"><div class="container header-inner"><a class="brand" href="{home}" aria-label="MandAPI GEO, {u['home']}"><span class="brand-mark" aria-hidden="true">m<span>↗</span></span><span>MandAPI <span class="brand-geo">GEO</span></span></a><nav class="main-nav" aria-label="{u['nav']}"><a href="{prefix}/guia-geo">{u['guide']}</a><a href="{prefix}/metodologia">{u['method']}</a></nav>{language_links(language,slug)}<a class="button button-small button-outline header-cta" href="{home}#url">{u['analyze']} ↗</a></div></header>
 <main id="main" class="container article-shell"><aside class="article-sidebar"><p>{u['side']}</p><nav aria-label="{u['side']}">{links}<a class="back-link" href="{home}">{u['back']}</a></nav></aside><article><header class="article-header"><p class="eyebrow">{u['library']}</p><h1>{title}</h1><p class="article-lead">{description}</p><p class="article-meta">{u['review']}</p></header><div class="article-body">{body}<div class="article-cta"><h2>{u['next']}</h2><p>{u['cta']}</p><a class="button button-dark" href="{home}#url">{u['analyze']} →</a></div></div></article></main>
 <footer class="site-footer"><div class="container"><div class="footer-top"><div><a class="brand" href="{home}">MandAPI <span class="brand-geo">GEO</span></a><p>{u['tagline']}</p></div><nav aria-label="{u['side']}">{links}</nav></div><div class="footer-bottom"><span>MandAPI GEO · {u['locale']}</span><span>{u['disclaimer']}</span></div></div></footer></body></html>'''
@@ -126,7 +148,7 @@ def create_home_pages():
         translation={row[0]:row[index] for row in HOME+ATTRIBUTES}
         missing=[]
         for text in list(soup.find_all(string=True)):
-            if text.parent.name in ['script','style']: continue
+            if text.parent.name in ['script','style','title']: continue
             content=str(text).strip()
             if content in translation:
                 text.replace_with(str(text).replace(content,translation[content]))
@@ -141,11 +163,18 @@ def create_home_pages():
                 if href=='/': element['href']=ui['prefix']
                 elif href in ['/metodologia','/privacidade','/guia-geo']: element['href']=ui['prefix']+href
         canonical=ui['prefix'] or '/'
+        page_title,page_description=HOME_META[language]
+        soup.title.string=page_title
+        soup.find('meta',attrs={'name':'description'})['content']=page_description
+        soup.find('meta',property='og:title')['content']=page_title
+        soup.find('meta',property='og:description')['content']=page_description
         soup.find('link',rel='canonical')['href']='__SITE_URL__'+canonical
         soup.find('meta',property='og:url')['content']='__SITE_URL__'+canonical
         soup.find('meta',property='og:image')['content']='__SITE_URL__/assets/og-image'+('' if language=='pt' else '.'+language)+'.png'
         for prop,value in [('og:image:width','1200'),('og:image:height','630')]:
             tag=soup.new_tag('meta'); tag['property']=prop; tag['content']=value; soup.head.append(tag)
+        for name,value in [('twitter:title',page_title),('twitter:description',page_description),('twitter:image',soup.find('meta',property='og:image')['content'])]:
+            tag=soup.find('meta',attrs={'name':name}) or soup.new_tag('meta'); tag['name']=name; tag['content']=value; soup.head.append(tag)
         soup.find('meta',property='og:locale')['content']={'pt':'pt_BR','en':'en_US','zh':'zh_CN'}[language]
         for item in BeautifulSoup(alternates(),'html.parser').contents:
             soup.head.append(item)
@@ -155,11 +184,12 @@ def create_home_pages():
         if language!='pt': script['src']=f'/assets/app.{language}.js'
         schema=soup.find('script',type='application/ld+json')
         data=json.loads(schema.string)
+        if '@graph' in data: data=data['@graph'][1]
         data['url']='__SITE_URL__'+canonical
         data['inLanguage']=ui['lang']
         data['description']=soup.find('meta',attrs={'name':'description'})['content']
         data['featureList']={'pt':['Auditoria de uma página HTML','Verificações com evidências','Relatórios em JSON e Markdown'],'en':['Single-page HTML audit','Checks with evidence','JSON and Markdown reports'],'zh':['单页 HTML 分析','检查证据可查','JSON 与 Markdown 报告']}[language]
-        schema.string=json.dumps(data,ensure_ascii=False)
+        schema.string=json.dumps({'@context':'https://schema.org','@graph':[{'@type':'WebSite','name':'MandAPI GEO','url':'__SITE_URL__'+canonical,'inLanguage':ui['lang']},data]},ensure_ascii=False)
         target=ROOT/(language if language!='pt' else '')/'index.html'
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(str(soup),encoding='utf-8')

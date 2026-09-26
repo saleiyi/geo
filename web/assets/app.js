@@ -7,12 +7,30 @@
 
   const AREA = { seo: 'SEO técnico', geo: 'Preparação para IA', content: 'Conteúdo' };
   const SEVERITY = { critical: 'Crítica', high: 'Alta', medium: 'Média', low: 'Baixa' };
-  const STATUS = { pass: 'Passou', warn: 'Atenção', fail: 'Falhou', info: 'Informativo' };
+  const STATUS = { pass: 'Passou', warn: 'Atenção', fail: 'Falhou', info: 'Informativo', unknown:'Não confirmado' };
   const SCOPE = 'HTML de uma página e arquivos públicos de apoio. Sem renderização JavaScript, rastreamento completo do site ou verificação de posições e citações. Pontuação heurística, sem garantia de ranking.';
   let currentReport = null;
   let isDemo = false;
   let controller = null;
   let printState = null;
+  const BASELINE_KEY = 'mandapi-geo-baseline-v1';
+  const MAX_BASELINE_BYTES = 1024 * 1024;
+  let baseline = null;
+  let comparison = null;
+  let storedBaselinePresent = false;
+  let baselineMutation = 0;
+  const DIFF_LABELS = { resolved:'Resolvidos nesta verificação', new_issues:'Novos problemas', persistent:'Ainda presentes', unverified:'Não confirmados', worsened:'Mais graves', improved:'Menos graves' };
+  const COMPARE_REASONS = {
+    missing_version:'Este relatório antigo não informa as versões necessárias. Reanalise a página para criar uma referência compatível.',
+    schema_mismatch:'Os formatos de relatório são diferentes. Não é possível confirmar mudanças entre estas versões.',
+    engine_mismatch:'Os motores de análise são diferentes. Crie uma nova referência para comparar com as mesmas regras.',
+    scoring_mismatch:'As regras de pontuação mudaram. Estas notas e correções não são comparáveis.',
+    target_mismatch:'As URLs solicitadas são diferentes. Compare a mesma página para confirmar mudanças.',
+    redirect_mismatch:'As URLs finais após redirecionamentos são diferentes. Não é possível atribuir as mudanças à mesma página.',
+    not_newer:'A análise atual precisa ser posterior à referência. Faça uma nova análise após as alterações.',
+    coverage_changed:'A cobertura das verificações mudou. As evidências comparáveis são exibidas, mas não há diferença de pontuação confiável.',
+    weights_changed:'Os pesos das verificações mudaram. As evidências comparáveis são exibidas, mas as notas não são comparadas.'
+  };
 
   function node(tag, className, text) {
     const element = document.createElement(tag);
@@ -54,7 +72,10 @@
     $('demo-button').disabled = busy;
     $('url').readOnly = busy;
     $('results').setAttribute('aria-busy', String(busy));
-    $('submit').textContent = busy ? 'Analisando…' : 'Analisar página →';
+    $('submit').textContent = busy ? 'Analisando…' : 'Analisar esta página grátis →';
+    $('retest-baseline').disabled = busy;
+    $('save-baseline').disabled = busy;
+    $('import-baseline').disabled = busy;
   }
 
   function validateUrl(raw) {
@@ -163,7 +184,10 @@
     renderScores();
     renderIssues();
     renderChecks();
+    renderTopPriorities();
     $('results').hidden = false;
+    renderBaseline();
+    renderComparison();
     document.body.classList.add('has-report');
     $('report-title').focus({ preventScroll:true });
     $('results').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
@@ -192,6 +216,7 @@
     }
     $('url').value = url;
     $('results').hidden = true;
+    renderBaseline();
     setBusy(true);
     showStatus('loading', 'Lendo a página e verificando os sinais…', 'O tempo varia conforme a resposta do site. Você pode cancelar a espera.');
     controller = new AbortController();
@@ -238,6 +263,210 @@
     form.requestSubmit();
   });
 
+  function baselineStatus(message, error = false) {
+    $('baseline-status').textContent = message;
+    $('baseline-status').classList.toggle('field-error', error);
+  }
+
+  function reportVersion(report) {
+    return `${plain(report.schema_version)} / ${plain(report.scoring_version)} / ${plain(report.engine)}`;
+  }
+
+  function renderBaseline() {
+    const meta = $('baseline-meta');
+    meta.replaceChildren();
+    meta.hidden = !baseline;
+    $('clear-baseline').hidden = !baseline && !storedBaselinePresent;
+    $('retest-baseline').hidden = !baseline;
+    $('save-baseline').hidden = !currentReport || isDemo || $('results').hidden;
+    if (!baseline) return;
+    [['Página de referência',baseline.target_url],['URL final',baseline.facts?.final_url || baseline.target_url],['Data da referência',dateLabel(baseline.scanned_at)],['Versões: formato / pontuação / motor',reportVersion(baseline)]].forEach(([label,value]) => {
+      const item = node('div');
+      item.append(node('dt','',label),node('dd','',value));
+      meta.append(item);
+    });
+  }
+
+  function storeBaseline(report) {
+    const candidate = window.GeoComparison.validateReport(report);
+    const serialized = JSON.stringify(candidate);
+    if (new Blob([serialized]).size > MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+    baseline = candidate;
+    try {
+      window.localStorage.setItem(BASELINE_KEY,serialized);
+      storedBaselinePresent = true;
+      baselineStatus('Referência salva neste navegador. Corrija a página e reanalise quando estiver pronto.');
+    } catch {
+      baselineStatus('O navegador bloqueou o armazenamento. A referência funciona apenas nesta aba e será perdida ao recarregar ou trocar de idioma. Uma cópia anterior pode continuar salva.');
+    }
+    renderBaseline();
+    renderComparison();
+  }
+
+  function readSavedBaseline() {
+    try {
+      const raw = window.localStorage.getItem(BASELINE_KEY);
+      if (raw) {
+        storedBaselinePresent = true;
+        if (new Blob([raw]).size > MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+        baseline = window.GeoComparison.validateReport(JSON.parse(raw));
+        baselineStatus('Referência restaurada deste navegador. Nenhuma análise foi iniciada.');
+      }
+    } catch {
+      baselineStatus('Não foi possível ler a referência salva. Você pode importar um JSON válido ou usar uma referência apenas nesta aba.');
+    }
+    renderBaseline();
+  }
+
+  function baselineError(error) {
+    baselineStatus(error.message === 'baseline_too_large' ? 'O arquivo ou relatório excede o limite de 1 MiB. Escolha um relatório menor.' : 'Não foi possível usar este arquivo. Importe um relatório JSON válido do MandAPI GEO; demonstrações e arquivos incompletos não são aceitos.',true);
+  }
+
+  function diffGroups() {
+    if (!comparison?.compatible) return [];
+    return [['resolved',comparison.resolved],['new_issues',comparison.new_issues],['persistent',comparison.persistent],['unverified',comparison.unverified]].map(([key,items]) => [key,items || []]);
+  }
+
+  function diffExplanation(diff) {
+    if (['previous_not_scored','previous_unknown','check_missing_before'].includes(diff.reason)) return 'A referência não contém evidência suficiente para classificar este problema como novo ou como uma piora.';
+    if (diff.change === 'worsened') return 'O status ficou mais grave entre as duas análises.';
+    if (diff.change === 'improved') return 'O status melhorou, mas ainda existe um ponto de atenção.';
+    if (diff.change === 'resolved') return 'A mesma verificação passou na análise mais recente. Isso não comprova a causa da mudança.';
+    if (diff.change === 'new_issue') return 'Um novo problema foi sinalizado nesta verificação.';
+    if (diff.reason === 'check_missing') return 'A verificação não existe no novo relatório; a correção não foi confirmada.';
+    if (diff.reason === 'not_scored' || diff.reason === 'unknown_status' || diff.change === 'unverified') return 'O novo resultado não permite confirmar se o problema foi resolvido.';
+    return 'O ponto de atenção continua presente. Compare as evidências antes de agir.';
+  }
+
+  function comparisonReason() {
+    if (comparison?.compatible && !comparison.score_comparable && !COMPARE_REASONS[comparison.score_reason]) return 'Não há dados equivalentes suficientes para comparar as notas. Veja apenas as mudanças confirmáveis nas verificações.';
+    return COMPARE_REASONS[comparison?.reason] || COMPARE_REASONS[comparison?.score_reason] || 'As verificações foram comparadas. As notas só são comparadas quando versões, cobertura e pesos são equivalentes.';
+  }
+
+  function appendEvidence(container,label,check,issue) {
+    const side = node('div','diff-evidence');
+    side.append(node('h5','',label),node('p','diff-status',check ? (STATUS[check.status] || 'Não confirmado') : 'Verificação ausente'),node('p','',plain(check?.value,'Nenhuma evidência disponível.')));
+    if (issue?.severity) side.append(node('p','',`Severidade: ${SEVERITY[issue.severity] || plain(issue.severity)}`));
+    if (check?.hint || issue?.fix) side.append(node('p','muted',plain(check?.hint || issue?.fix)));
+    container.append(side);
+  }
+
+  function renderComparison() {
+    const section = $('comparison-section');
+    comparison = null;
+    section.hidden = !baseline || !currentReport || isDemo || $('results').hidden;
+    if (section.hidden) return;
+    try { comparison = window.GeoComparison.compareReports(baseline,currentReport); } catch {
+      section.hidden = false;
+      $('comparison-notice').textContent = 'Este relatório não pode ser comparado com segurança. Reanalise a página e salve uma nova referência.';
+      $('comparison-scores').replaceChildren(); $('comparison-counts').replaceChildren(); $('comparison-details').replaceChildren();
+      $('download-comparison').disabled = true;
+      return;
+    }
+    $('download-comparison').disabled = false;
+    $('comparison-notice').textContent = comparisonReason();
+    const scores = $('comparison-scores'); scores.replaceChildren();
+    const counts = $('comparison-counts'); counts.replaceChildren();
+    const details = $('comparison-details'); details.replaceChildren();
+    const metadata=node('dl','comparison-meta');
+    [['Página de referência',baseline.target_url],['URL final da referência',baseline.facts?.final_url || baseline.target_url],['Data da referência',dateLabel(baseline.scanned_at)],['Versões da referência',reportVersion(baseline)],['Página atual',currentReport.target_url],['URL final atual',currentReport.facts?.final_url || currentReport.target_url],['Data atual',dateLabel(currentReport.scanned_at)],['Versões atuais',reportVersion(currentReport)]].forEach(([label,value])=>{const row=node('div');row.append(node('dt','',label),node('dd','',value));metadata.append(row);});
+    details.append(metadata);
+    details.append(node('p','small muted','A referência vem deste navegador ou de um JSON importado. Sua origem e integridade não são autenticadas pelo servidor.'));
+    if (!comparison.compatible) return;
+    if (comparison.score_comparable) {
+      Object.entries(comparison.score_delta || {}).filter(([key]) => key !== 'content').forEach(([key,value]) => {
+        const item=node('div','delta-card');
+        item.append(node('span','',key==='overall'?'Nota geral':areaLabel(key)),node('strong','',`${value > 0 ? '+' : ''}${value}`),node('span','small muted','pontos desde a referência'));
+        scores.append(item);
+      });
+    }
+    ['resolved','new_issues','persistent','unverified','worsened'].forEach((key) => {
+      const item=node('div','diff-count');
+      item.append(node('strong','',comparison.counts?.[key] || 0),node('span','',DIFF_LABELS[key]));
+      counts.append(item);
+    });
+    details.append(node('p','small muted','“Mais graves” é um subconjunto dos problemas ainda presentes. Ausência de evidência nunca é tratada como correção.'));
+    diffGroups().forEach(([key,items]) => {
+      const group=node('section','diff-group');
+      group.append(node('h4','',`${DIFF_LABELS[key]} (${items.length})`));
+      if (!items.length) group.append(node('p','small muted','Nenhuma ocorrência nesta categoria.'));
+      items.forEach((diff,index) => {
+        const item=node('details','diff-item'); item.dataset.diffId=`${key}-${index}`;
+        const summary=node('summary');
+        summary.append(node('span','',plain(diff.label,diff.id)),node('span','area-tag',areaLabel(diff.area)));
+        if (diff.change==='worsened' || diff.change==='improved') summary.append(node('span','tag',DIFF_LABELS[diff.change]));
+        const body=node('div','diff-body'); body.append(node('p','small muted',diffExplanation(diff)));
+        const evidence=node('div','diff-evidence-grid');
+        appendEvidence(evidence,'Antes · referência',diff.before,diff.before_issue);
+        appendEvidence(evidence,'Depois · análise atual',diff.after,diff.after_issue);
+        body.append(evidence); item.append(summary,body); group.append(item);
+      });
+      details.append(group);
+    });
+  }
+
+  function comparisonMarkdown() {
+    if (!comparison || !baseline) return [];
+    const lines=['## Comparação de reparos e nova análise','',`- Página de referência: ${markdownText(baseline.target_url)}`,`- URL final da referência: ${markdownText(baseline.facts?.final_url || baseline.target_url)}`,`- Data da referência: ${markdownText(baseline.scanned_at)}`,`- Versões da referência: ${markdownText(reportVersion(baseline))}`,`- Página atual: ${markdownText(currentReport.target_url)}`,`- URL final atual: ${markdownText(currentReport.facts?.final_url || currentReport.target_url)}`,`- Data atual: ${markdownText(currentReport.scanned_at)}`,`- Versões atuais: ${markdownText(reportVersion(currentReport))}`,'',comparisonReason(),'','Mudanças observadas não comprovam causalidade, ranking, tráfego ou citações por IA.'];
+    lines.push('','A referência vem deste navegador ou de um JSON importado. Sua origem e integridade não são autenticadas pelo servidor.');
+    if (!comparison.compatible) { lines.push('','Nenhuma correção ou diferença de nota foi confirmada.'); return lines; }
+    if (comparison.score_comparable) Object.entries(comparison.score_delta || {}).filter(([key])=>key!=='content').forEach(([key,value])=>lines.push(`- ${key==='overall'?'Nota geral':areaLabel(key)}: ${value>0?'+':''}${value}`));
+    diffGroups().forEach(([key,items]) => {
+      lines.push('',`### ${DIFF_LABELS[key]} (${items.length})`,'');
+      if (!items.length) lines.push('Nenhuma ocorrência nesta categoria.');
+      items.forEach((diff) => {
+        lines.push('',`#### ${markdownText(diff.label || diff.id)}`,'',diffExplanation(diff));
+        [['Antes · referência',diff.before,diff.before_issue],['Depois · análise atual',diff.after,diff.after_issue]].forEach(([label,check,issue])=>lines.push('',`**${label}**`, `- Status: ${check?(STATUS[check.status] || 'Não confirmado'):'Verificação ausente'}`,`- Evidência: ${markdownText(check?.value)}`,`- Severidade: ${markdownText(issue?.severity ? SEVERITY[issue.severity] || issue.severity : null)}`,`- Orientação: ${markdownText(check?.hint || issue?.fix)}`));
+      });
+    });
+    return lines;
+  }
+
+  $('save-baseline').addEventListener('click', () => {
+    baselineMutation += 1;
+    if (currentReport && !isDemo) { try { storeBaseline(currentReport); } catch(error) { baselineError(error); } }
+  });
+  $('import-baseline').addEventListener('change', async (event) => {
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if (!file) return;
+    const mutation = ++baselineMutation;
+    try {
+      if (file.size>MAX_BASELINE_BYTES) throw new Error('baseline_too_large');
+      const raw = await file.text();
+      if (mutation !== baselineMutation) return;
+      storeBaseline(JSON.parse(raw));
+    } catch(error) { if (mutation === baselineMutation) baselineError(error); }
+  });
+  $('clear-baseline').addEventListener('click', () => {
+    baselineMutation += 1;
+    baseline=null;
+    try { window.localStorage.removeItem(BASELINE_KEY); storedBaselinePresent=false; baselineStatus('Referência removida deste navegador.'); }
+    catch { baselineStatus('Referência removida desta aba. O navegador bloqueou o acesso ao armazenamento; apague os dados do site nas configurações para remover uma cópia anterior.'); }
+    renderBaseline(); renderComparison();
+  });
+  $('retest-baseline').addEventListener('click', () => { if (baseline && !controller) { $('url').value=baseline.target_url; form.requestSubmit(); } });
+  $('download-comparison').addEventListener('click', () => {
+    if (!comparison) return;
+    const url=URL.createObjectURL(new Blob([comparisonMarkdown().join('\n')],{type:'text/markdown;charset=utf-8'}));
+    const link=node('a');link.href=url;link.download='mandapi-geo-comparison.md';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+
+  function renderTopPriorities() {
+    const list=$('top-priorities');
+    if (!list) return;
+    list.replaceChildren();
+    const issues=getIssues().slice(0,3);
+    $('top-priorities-section').hidden=!issues.length;
+    issues.forEach((issue,index)=>{
+      const card=node('article','priority-card');
+      card.append(node('span','step-number',String(index+1).padStart(2,'0')),node('h4','',plain(issue.title)),node('span','severity-tag',SEVERITY[issue.severity] || plain(issue.severity)),node('p','',plain(issue.fix)),node('p','small muted',plain(issue.detail)));
+      list.append(card);
+    });
+  }
+
+  readSavedBaseline();
+
   function markdownText(value) {
     return plain(value, '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\`*_{}\[\]()#+.!|])/g, '\\$1').replace(/\r?\n/g, '  \n');
   }
@@ -253,6 +482,8 @@
     getIssues().forEach((issue) => text.push(`### ${markdownText(issue.title)}`, '', `Área: ${areaLabel(issue.area)} · Severidade: ${SEVERITY[issue.severity] || 'Não informada'}`, '', markdownText(issue.detail), '', `**Como revisar:** ${markdownText(issue.fix)}`, ''));
     text.push('## Todas as verificações', '');
     getChecks().forEach((check) => text.push(`### ${markdownText(check.label)}`, '', `Área: ${areaLabel(check.area)} · Status: ${STATUS[check.status] || 'Informativo'}`, '', `**Evidência:** ${markdownText(check.value)}`, '', `**Orientação:** ${markdownText(check.hint)}`, ''));
+    text.push('', `Versão do relatório: ${markdownText(r.schema_version)}`, `Versão da pontuação: ${markdownText(r.scoring_version)}`);
+    if (comparison && !isDemo) text.push('', ...comparisonMarkdown());
     return text.join('\n');
   }
 
@@ -276,12 +507,13 @@
   $('print-report').addEventListener('click', () => window.print());
   window.addEventListener('beforeprint', () => {
     if (!currentReport || $('results').hidden || printState) return;
-    printState = { area:$('area-filter').value, severity:$('severity-filter').value, opened:[...$('checks').querySelectorAll('details[open]')].map((item) => item.dataset.checkId) };
+    printState = { area:$('area-filter').value, severity:$('severity-filter').value, opened:[...$('checks').querySelectorAll('details[open]')].map((item) => item.dataset.checkId), comparisonOpened:[...$('comparison-details').querySelectorAll('details[open]')].map((item) => item.dataset.diffId) };
     $('area-filter').value = 'all';
     $('severity-filter').value = 'all';
     renderIssues();
     renderChecks();
     $('checks').querySelectorAll('details').forEach((item) => { item.open = true; });
+    $('comparison-details').querySelectorAll('details').forEach((item) => { item.open = true; });
   });
   window.addEventListener('afterprint', () => {
     if (!printState) return;
@@ -290,6 +522,7 @@
     renderIssues();
     renderChecks();
     $('checks').querySelectorAll('details').forEach((item) => { item.open = printState.opened.includes(item.dataset.checkId); });
+    $('comparison-details').querySelectorAll('details').forEach((item) => { item.open = printState.comparisonOpened.includes(item.dataset.diffId); });
     printState = null;
   });
 
@@ -298,16 +531,16 @@
     $('scan-feedback').hidden = true;
     renderReport({
       target_url:'https://exemplo.com.br/', domain:'exemplo.com.br', scanned_at:'2026-09-26T09:00:00Z', elapsed_ms:3200, engine:'demonstração — dados fictícios',
-      score:{ overall:76, seo:84, geo:68, content:0, grade:'B', summary:'Exemplo ilustrativo: uma base técnica organizada, com oportunidades na descrição e na identificação do conteúdo. As notas são fictícias.' },
+      score:{ overall:76, seo:84, geo:68, content:0, grade:'B', summary:'Exemplo ilustrativo de verificações do HTML: tamanho da descrição, autoria declarada e estrutura semântica. As notas e os valores são fictícios.' },
       facts:{ final_url:'https://exemplo.com.br/' },
       areas:[
-        { area:'seo', label:AREA.seo, score:84, checks:[{ id:'demo-https', area:'seo', label:'Conexão HTTPS', status:'pass', value:'Exemplo: a página usa HTTPS.', hint:'Mantenha um certificado válido e redirecione a versão HTTP.' },{ id:'demo-description', area:'seo', label:'Descrição da página', status:'warn', value:'Exemplo fictício: descrição genérica, sem explicar o serviço.', hint:'Escreva uma descrição específica que resuma a proposta desta página.' },{ id:'demo-canonical', area:'seo', label:'Endereço canonical', status:'pass', value:'https://exemplo.com.br/ (URL fictícia)', hint:'Confirme se o endereço corresponde à versão principal da página.' }] },
-        { area:'geo', label:AREA.geo, score:68, checks:[{ id:'demo-author', area:'geo', label:'Identificação do responsável', status:'warn', value:'Exemplo: não foi encontrada identificação explícita do responsável.', hint:'Quando fizer sentido, apresente autoria, experiência ou a organização responsável pelo conteúdo.' },{ id:'demo-bots', area:'geo', label:'Regras para crawlers de IA', status:'info', value:'Exemplo: este relatório não consultou nenhum robots.txt real.', hint:'Revise separadamente as decisões de acesso para busca e para treinamento.' },{ id:'demo-headings', area:'geo', label:'Organização dos títulos', status:'pass', value:'Exemplo: um título principal e seções descritivas.', hint:'Use títulos que ajudem a encontrar respostas, sem repetir termos artificialmente.' },{ id:'demo-answer', area:'geo', label:'Resposta à necessidade do leitor', status:'warn', value:'Exemplo: o texto não explica o que está incluído no serviço.', hint:'Responda à dúvida central primeiro e detalhe condições, exemplos e limites.' }] }
+        { area:'seo', label:AREA.seo, score:84, checks:[{ id:'demo-https', area:'seo', label:'Conexão HTTPS', status:'pass', value:'Exemplo: a página usa HTTPS.', hint:'Mantenha um certificado válido e redirecione a versão HTTP.' },{ id:'demo-description', area:'seo', label:'Comprimento da meta description', status:'warn', value:'30 caracteres; página em português (exemplo fictício).', hint:'O comprimento é uma referência editorial, não uma avaliação do significado ou da qualidade da descrição.' },{ id:'demo-canonical', area:'seo', label:'Endereço canonical', status:'pass', value:'https://exemplo.com.br/ (URL fictícia)', hint:'Confirme se o endereço corresponde à versão principal da página.' }] },
+        { area:'geo', label:AREA.geo, score:68, checks:[{ id:'demo-author', area:'geo', label:'Autoria declarada no HTML', status:'warn', value:'Nenhuma declaração de autor encontrada (exemplo fictício).', hint:'Confira se uma identificação de autoria apropriada está presente no HTML. Esta verificação não valida credenciais.' },{ id:'demo-bots', area:'geo', label:'Regras para crawlers de IA', status:'info', value:'Exemplo: este relatório não consultou nenhum robots.txt real.', hint:'Revise separadamente as decisões de acesso para busca e para treinamento.' },{ id:'demo-extractable', area:'geo', label:'Proporção de texto no HTML', status:'pass', value:'8,2% do HTML é texto (exemplo fictício).', hint:'A proporção é uma heurística estrutural; não mede compreensão do tema ou probabilidade de citação.' },{ id:'demo-semantic', area:'geo', label:'HTML semântico', status:'warn', value:'Nenhuma tag <main> ou <article> encontrada (exemplo fictício).', hint:'Use elementos semânticos apropriados para identificar o conteúdo principal, sem alterar sua informação apenas para obter pontos.' }] }
       ],
       issues:[
-        { id:'demo-description', area:'seo', severity:'high', title:'Tornar a descrição da página mais específica', detail:'Neste exemplo fictício, a descrição é genérica e não informa o que a página oferece.', fix:'Resuma o serviço e o público atendido em uma frase útil. Evite listas artificiais de palavras-chave.' },
-        { id:'demo-author', area:'geo', severity:'medium', title:'Identificar quem responde pelo conteúdo', detail:'Neste exemplo fictício, não há indicação clara da pessoa ou organização responsável.', fix:'Inclua identificação verificável e informações de contexto relevantes para o assunto.' },
-        { id:'demo-answer', area:'geo', severity:'low', title:'Explicar o serviço com mais clareza', detail:'Neste exemplo fictício, o leitor precisa procurar informações básicas em outras páginas.', fix:'Explique o que está incluído, para quem é o serviço e quais são as condições, usando informações reais.' }
+        { id:'demo-author', area:'geo', severity:'medium', title:'Revisar a declaração de autoria', detail:'Neste exemplo fictício, não foi encontrada uma declaração de autor no HTML.', fix:'Quando fizer sentido para a página, apresente autoria verdadeira em conteúdo visível e marcação correspondente.' },
+        { id:'demo-semantic', area:'geo', severity:'medium', title:'Identificar o conteúdo principal com HTML semântico', detail:'Neste exemplo fictício, o HTML não contém <main> nem <article>.', fix:'Revise a estrutura e use <main> para o conteúdo principal ou <article> para conteúdo independente, quando apropriado.' },
+        { id:'demo-description', area:'seo', severity:'low', title:'Revisar o comprimento da meta description', detail:'Neste exemplo fictício em português, a descrição tem 30 caracteres. A ferramenta não avaliou seu significado.', fix:'Revise a descrição no contexto da página e do idioma. Comprimento isolado não determina a qualidade ou o trecho exibido na busca.' }
       ]
     }, true);
   });

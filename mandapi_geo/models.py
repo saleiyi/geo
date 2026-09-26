@@ -142,6 +142,10 @@ class SiteFacts(BaseModel):
 
 
 class ScanReport(BaseModel):
+    # Version the export contract and scoring methodology independently.
+    # Bump scoring_version whenever checks, eligibility or weights change.
+    schema_version: Literal[1] = 1
+    scoring_version: str = "readiness-2026-09-26"
     target_url: str
     requested_keyword: str | None = None
     domain: str = ""
