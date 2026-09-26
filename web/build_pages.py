@@ -34,19 +34,19 @@ PAGES = {
 <h2>Os relatórios são armazenados?</h2><p>A aplicação não usa um banco de dados para manter histórico de análises. As informações são processadas durante a requisição e o relatório permanece na memória da página aberta. Recarregar ou fechar a página remove o relatório da interface.</p><p>Arquivos JSON, Markdown ou PDF que você exporta ficam no dispositivo conforme as configurações do navegador. Esses arquivos podem conter URLs e trechos públicos da página analisada; compartilhe-os com cuidado.</p>
 <h2>Cookies, métricas e serviços de IA</h2><p>Esta interface não inclui ferramentas de analytics de terceiros, pixels publicitários ou cookies próprios de acompanhamento. A análise iniciada por este formulário solicita apenas o motor de regras, sem resumo por modelo de IA.</p><p>A API pode ter uma função opcional de resumo por IA, usada somente quando solicitada e configurada pelo operador. Nesse caso, informações do relatório podem ser enviadas ao provedor configurado. Essa opção não é ativada pelo formulário deste site.</p>
 <h2>Logs e infraestrutura</h2><p>O servidor, o provedor de hospedagem, proxies e serviços de proteção podem manter registros operacionais, como IP, horário, rota, erros e informações de requisição. A retenção desses registros depende da configuração da implantação. A ausência de um banco de relatórios não significa ausência de todos os logs.</p><p>Para aplicar os limites de uso, a aplicação mantém em memória um identificador derivado do IP com hash e um valor aleatório temporário. O contador é reiniciado à meia-noite UTC e não é persistido em banco de dados. Tentativas que iniciam uma análise também contam quando a leitura falha. Os limites efetivos dependem da configuração do serviço.</p>
-<h2>Uma política que depende da implantação</h2><p>Esta página descreve o funcionamento desta aplicação. A identidade e o canal de contato do responsável, a hospedagem utilizada e os prazos de retenção precisam ser informados pelo operador antes de uma operação pública que exija esses dados. Não inventamos um responsável ou prazo de retenção.</p><p>Consulte esta página novamente se novas integrações, contas ou armazenamento forem adicionados. As práticas descritas devem acompanhar a configuração efetiva do serviço.</p>"""),
+<h2>Informações desta operação</h2><p>Consulte o quadro de <a href="#operator-information">informações do operador</a> para identificar o responsável, o contato de privacidade, a hospedagem e as práticas de registro e retenção aplicáveis a este serviço.</p><p>Consulte esta página novamente se novas integrações, contas ou armazenamento forem adicionados. As práticas descritas devem acompanhar a configuração efetiva do serviço.</p>"""),
         "en": ("Privacy, clearly explained", "What happens to the URL you submit and the data used to produce your report.", """
 <h2>What do we receive?</h2><p>When you start an audit, your browser sends the submitted URL to the server. The server accesses that public page and supporting files to extract technical and content signals. The destination site receives these requests and may log them.</p><p>Submit public URLs only. Do not include passwords, access tokens, personal data, or confidential information in the address or its query parameters.</p>
 <h2>Are reports stored?</h2><p>The application does not use a database to maintain an audit history. Information is processed during the request, and the report stays in the memory of the open page. Reloading or closing the page removes it from the interface.</p><p>JSON, Markdown, or PDF files you export are saved to your device according to browser settings. They may contain URLs and public excerpts from the audited page; consider their contents before sharing.</p>
 <h2>Cookies, analytics, and AI services</h2><p>This interface includes no third-party analytics, advertising pixels, or first-party tracking cookies. Audits started through this form use the rules engine without an AI-generated summary.</p><p>The API may offer an optional AI summary, used only when requested and configured by the operator. In that case, report information may be sent to the configured provider. This website’s form does not enable that option.</p>
 <h2>Logs and infrastructure</h2><p>The server, hosting provider, proxies, and protection services may keep operational records such as IP addresses, timestamps, routes, errors, and request information. Retention depends on deployment configuration. No report database does not mean no logs exist.</p><p>To apply usage limits, the application keeps an IP-derived identifier in memory using a hash and a temporary random salt. The counter resets at midnight UTC and is not persisted in a database. Attempts that begin an audit also count when reading fails. Effective limits depend on the service configuration.</p>
-<h2>A deployment-dependent policy</h2><p>This page describes how the application works. The operator’s identity and contact channel, hosting provider, and retention periods must be supplied by the operator before public operation requiring those details. We do not invent an operator or retention period.</p><p>Review this page again if integrations, accounts, or storage are introduced. The description must stay aligned with the service’s actual configuration.</p>"""),
+<h2>About this deployment</h2><p>See the <a href="#operator-information">operator information</a> for the responsible operator, privacy contact, hosting provider, and logging and retention practices applicable to this service.</p><p>Review this page again if integrations, accounts, or storage are introduced. The description must stay aligned with the service’s actual configuration.</p>"""),
         "zh": ("清楚说明隐私处理方式", "你提交的 URL 如何处理，以及生成报告时会使用哪些数据。", """
 <h2>我们会接收哪些信息？</h2><p>开始分析后，浏览器将你填写的 URL 发送给服务器。服务器访问该公开页面和辅助文件，提取技术与内容信号。目标网站会收到这些请求，也可能记录这些访问。</p><p>请只提交公开 URL，不要在地址或查询参数中包含密码、访问令牌、个人数据或保密信息。</p>
 <h2>报告会被保存吗？</h2><p>应用不使用数据库保存分析历史。信息在请求期间处理，报告保留在当前打开页面的内存中。刷新或关闭页面后，界面中的报告会消失。</p><p>导出的 JSON、Markdown 或 PDF 根据浏览器设置保存在你的设备中。这些文件可能包含 URL 和被分析页面的公开内容片段，分享前请检查其中的信息。</p>
 <h2>Cookie、统计与 AI 服务</h2><p>当前界面未集成第三方流量统计、广告像素或自有追踪 Cookie。通过这个表单发起的分析只使用规则引擎，不请求 AI 生成摘要。</p><p>API 可以提供可选的 AI 摘要功能，只有运营者完成配置且请求明确启用时才使用。此时，报告信息可能被发送给配置的模型服务提供方。本网站表单不会启用该选项。</p>
 <h2>日志与基础设施</h2><p>服务器、托管服务、代理和防护服务可能记录 IP、时间、路由、错误和请求信息等运行日志。日志保留期限取决于部署配置。不建立报告数据库，并不代表完全没有日志。</p><p>为了限制使用次数，应用使用 IP 和临时随机盐值计算哈希标识，仅在内存中保存计数器。计数器在 UTC 零点重置，不持久写入数据库。开始分析后即使读取失败，也会计入次数。实际限额取决于服务配置。</p>
-<h2>隐私说明取决于实际部署</h2><p>本页描述应用的工作方式。运营者身份、联系渠道、托管服务及日志保留期限，应在需要这些信息的公开运营前由实际运营者补充。我们不会虚构负责人或保留期限。</p><p>如果将来增加第三方集成、账户或存储，请重新查看本页。隐私说明应始终与服务的真实配置一致。</p>"""),
+<h2>本次运营的信息</h2><p>请查看上方的<a href="#operator-information">运营信息</a>，了解本服务的运营主体、隐私联系邮箱、托管服务商，以及适用的日志记录与保留规则。</p><p>如果将来增加第三方集成、账户或存储，请重新查看本页。隐私说明应始终与服务的真实配置一致。</p>"""),
     },
     "guia-geo": {
         "pt": ("GEO na prática: comece pelos fundamentos", "Um roteiro para melhorar SEO e preparar conteúdo para buscas com IA, sem atalhos ou promessas de citação.", """
@@ -92,6 +92,18 @@ BASELINE_PRIVACY = {
     'en':'<h2>A baseline saved in this browser</h2><p>Only when you click save or import a file is a compact copy of up to 1 MiB written to this browser’s localStorage. There is one baseline; the next replaces it. It contains URLs, dates, versions, scores, checks, evidence, and issues, and persists across reloads and language changes.</p><p>Use “Clear baseline” to remove it. If browser storage is blocked, the baseline works only in the current tab and can be lost when you leave. There is no device synchronization or server-side history. Imported JSON is read and validated in the browser without upload. Restoring or importing never starts an audit; rechecking requires your action.</p>',
     'zh':'<h2>保存在当前浏览器的基线</h2><p>只有主动点击保存或导入文件时，才会把最多 1 MiB 的紧凑报告写入当前浏览器的 localStorage。仅保存一份基线，下一份会替换上一份。其中包含 URL、日期、版本、分数、检查项、证据和问题，刷新页面或切换语言后仍保留。</p><p>使用“清除基线”即可删除。如果浏览器禁止存储，基线仅在当前标签页有效，离开后可能丢失。不跨设备同步，服务器不保存历史。导入的 JSON 在浏览器本地读取并验证，不会上传。恢复或导入基线不会启动分析，复测需要你的主动操作。</p>'
 }
+OPERATOR_PRIVACY = {
+    'pt': ('Informações do operador', 'Operador', 'Contato de privacidade', 'Provedor de hospedagem', 'Logs e retenção'),
+    'en': ('Operator information', 'Operator', 'Privacy contact', 'Hosting provider', 'Logs and retention'),
+    'zh': ('运营信息', '运营主体', '隐私联系邮箱', '托管服务商', '日志与保留规则'),
+}
+
+def operator_privacy_block(language):
+    heading, *labels = OPERATOR_PRIVACY[language]
+    fields = ['__OPERATOR_NAME__', '__CONTACT_EMAIL__', '__HOSTING_PROVIDER__', '__PRIVACY_LOG_NOTICE__']
+    rows = ''.join(f'<div><dt>{label}</dt><dd>{field}</dd></div>' for label, field in zip(labels, fields))
+    return f'<section class="privacy-operator" id="operator-information" aria-labelledby="operator-title"><h2 id="operator-title">{heading}</h2><dl>{rows}</dl></section>'
+
 HOME_META = {
     'pt':('Auditoria SEO e GEO grátis por página | MandAPI GEO','Analise uma URL: SEO técnico, preparação para buscas com IA e estrutura do conteúdo. Veja prioridades, evidências e compare após corrigir. Sem cadastro.'),
     'en':('Free SEO & GEO Page Checker, AI Readiness Audit | MandAPI GEO','Check one page for technical SEO and AI search readiness. Get evidence, prioritized fixes, and compare a new audit against your saved baseline. No login.'),
@@ -105,11 +117,14 @@ def language_links(language, slug=""):
 def alternates(slug=""):
     return '\n'.join(f'<link rel="alternate" hreflang="{lang}" href="__SITE_URL__{path}">' for lang,path in [("pt-BR","/"+slug),("en","/en"+("/"+slug if slug else "")),("zh-CN","/zh"+("/"+slug if slug else "")),("x-default","/"+slug)])
 
-def create_editorial_pages():
+def create_editorial_pages(slugs=None):
     for slug, versions in PAGES.items():
+        if slugs is not None and slug not in slugs:
+            continue
         for language, (title, description, body) in versions.items():
             if slug=='metodologia': body+=COMPARISON_METHOD[language]
             if slug=='privacidade':
+                body=operator_privacy_block(language)+body
                 body+=BASELINE_PRIVACY[language]
                 body=body.replace('Recarregar ou fechar a página remove o relatório da interface.','Recarregar ou fechar a página remove o relatório atual da interface, exceto a referência que você escolheu salvar no navegador.')
                 body=body.replace('Reloading or closing the page removes it from the interface.','Reloading or closing the page removes the current report from the interface, except for a baseline you explicitly chose to save in your browser.')

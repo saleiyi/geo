@@ -2,6 +2,8 @@
 
 此仓库提供单实例部署配置，尚未配置正式域名、服务器、远程发布仓库或 TLS 证书。下面步骤不会购买服务或创建账户。当前交付环境没有可用的 Docker 命令，因此 Dockerfile / Compose 仅进行了静态检查，容器构建、启动和真实反向代理仍需在目标环境验收。
 
+首次外部试用可使用托管平台提供的 HTTPS 域名，参见 [外部试用发布准备](EXTERNAL_PILOT.md) 与可选 `render.yaml`。平台模板尚未实际部署。
+
 ## 1. 本地确认
 
 在仓库根目录运行：
@@ -82,6 +84,8 @@ GOOGLE_SITE_VERIFICATION=你的实际验证值
 ```
 
 上述域名和验证值是说明占位符，必须替换；不能直接用于部署。`SITE_URL` 必须是公开 HTTP(S) origin，不能包含用户名、密码、查询、片段或 `/geo` 等子路径。只有 HTTPS origin 配合 `SITE_INDEXABLE=true` 才允许索引。
+
+同时填写 `OPERATOR_NAME`、`CONTACT_EMAIL`、`HOSTING_PROVIDER` 及 `PRIVACY_LOG_NOTICE_PT/EN/ZH`；缺少任何一项时开启索引将产生配置错误。运行 `python -m mandapi_geo.preflight --stage production` 检查配置，并确认三语言隐私页中的信息真实。预检不验证实际托管、代理身份、数据处理规则或上线效果。
 
 环境变量修改后执行 `docker compose up -d --force-recreate`，因为设置在进程内缓存。开启索引后：
 

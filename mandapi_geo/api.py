@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import mimetypes
+import re
 import secrets
 import threading
 import time
@@ -149,9 +150,19 @@ def page_response(slug: str = "", locale: str = "") -> HTMLResponse:
         raise HTTPException(404, "Page not found")
     settings = load_settings()
     verification = ('<meta name="google-site-verification" content="' + escape(settings.google_site_verification, quote=True) + '">') if settings.google_site_verification else ""
-    html = path.read_text(encoding="utf-8").replace("__SITE_URL__", escape(_origin(), quote=True))
-    html = html.replace("__INDEX_ROBOTS__", "index, follow" if settings.site_indexable else "noindex, nofollow")
-    html = html.replace("__GOOGLE_VERIFICATION__", verification)
+    missing = {'': 'Não informado — versão de prévia.', 'en': 'Not provided — preview version.', 'zh': '尚未提供——预览版本。'}[locale]
+    log_notice = getattr(settings, 'privacy_log_notice_' + {'': 'pt', 'en': 'en', 'zh': 'zh'}[locale])
+    replacements = {
+        '__SITE_URL__': escape(_origin(), quote=True),
+        '__INDEX_ROBOTS__': 'index, follow' if settings.site_indexable else 'noindex, nofollow',
+        '__GOOGLE_VERIFICATION__': verification,
+        '__OPERATOR_NAME__': escape(settings.operator_name or missing),
+        '__CONTACT_EMAIL__': escape(settings.contact_email or missing),
+        '__HOSTING_PROVIDER__': escape(settings.hosting_provider or missing),
+        '__PRIVACY_LOG_NOTICE__': escape(log_notice or missing),
+    }
+    # Substitute once: operator-provided text must not become a template directive.
+    html = re.sub('|'.join(map(re.escape, replacements)), lambda match: replacements[match[0]], path.read_text(encoding='utf-8'))
     return HTMLResponse(html, headers={"Content-Language": LOCALES[locale], "Cache-Control": "no-cache"})
 
 @app.get("/", response_class=HTMLResponse)

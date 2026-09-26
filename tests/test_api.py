@@ -32,6 +32,7 @@ def fixture_report():
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv('SITE_URL', '')
+    monkeypatch.setenv('RENDER_EXTERNAL_URL', '')
     monkeypatch.setenv('SITE_INDEXABLE', 'false')
     monkeypatch.setenv('FREE_SCAN_DAILY_LIMIT', '3')
     monkeypatch.setenv('PUBLIC_AI_SUMMARY', 'false')
@@ -75,6 +76,9 @@ def test_preview_does_not_advertise_indexable_pages(client):
 
 
 def test_public_sitemap_and_host_header_are_safe(client, monkeypatch):
+    for key in ['OPERATOR_NAME', 'HOSTING_PROVIDER', 'PRIVACY_LOG_NOTICE_PT', 'PRIVACY_LOG_NOTICE_EN', 'PRIVACY_LOG_NOTICE_ZH']:
+        monkeypatch.setenv(key, 'Test fixture only')
+    monkeypatch.setenv('CONTACT_EMAIL', 'test@example.com')
     monkeypatch.setenv('SITE_URL','https://geo.example.com')
     monkeypatch.setenv('SITE_INDEXABLE','true')
     load_settings.cache_clear()

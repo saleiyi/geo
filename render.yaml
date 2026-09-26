@@ -1,0 +1,40 @@
+# Optional small external pilot. This file does not create an account or deploy itself.
+# See docs/EXTERNAL_PILOT.md before syncing. Keep a single instance and noindex.
+services:
+  - type: web
+    name: mandapi-geo-pilot
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: "off"
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 180
+    dockerCommand: >-
+      sh -c 'python -m mandapi_geo.preflight --stage preview && exec python -m uvicorn mandapi_geo.api:app --host 0.0.0.0 --port 8000 --workers 1 --no-proxy-headers --no-access-log'
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SITE_INDEXABLE
+        value: "false"
+      - key: PUBLIC_AI_SUMMARY
+        value: "false"
+      - key: HOSTING_PROVIDER
+        value: Render
+      - key: FREE_SCAN_DAILY_LIMIT
+        value: "3"
+      - key: MAX_CONCURRENT_SCANS
+        value: "2"
+      - key: USER_AGENT
+        value: MandAPIGeoBot/0.2
+      - key: OPERATOR_NAME
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: PRIVACY_LOG_NOTICE_PT
+        sync: false
+      - key: PRIVACY_LOG_NOTICE_EN
+        sync: false
+      - key: PRIVACY_LOG_NOTICE_ZH
+        sync: false

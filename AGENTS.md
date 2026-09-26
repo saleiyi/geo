@@ -13,4 +13,5 @@
 - Run `node --test tests/js/comparison.test.cjs` after baseline logic changes. Optional flow acceptance: `.venv\Scripts\python.exe tests/browser/conversion_v2_smoke.py` against a local server on port 8000; it uses explicitly synthetic HTML fixtures and no external scans.
 - `requirements.lock` is universal and hash-locked; `httpcore` transport uses private adapter interfaces, so rerun network tests after dependency changes.
 - Deployment is not complete until a real host, HTTPS domain and operator contact are configured. Never report a local preview as a public launch.
+- Public operator fields and translated logging notices must reflect actual operations. `python -m mandapi_geo.preflight --stage preview|production` checks configuration only; a green result does not verify live deployment, proxy quota isolation, customers or profitability.
 - The user's global rule applies: any tool turn containing `view_image` must contain only that single tool call.

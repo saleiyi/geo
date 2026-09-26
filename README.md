@@ -2,7 +2,7 @@
 
 ![中文版首页](docs/screenshots/conversion-v2-after-hero.png)
 
-本轮本地验收：145 项 Python、26 项 JavaScript 测试通过，三语手机首屏及修复复测流程通过浏览器验收。详见 [Conversion V2 记录](docs/CONVERSION_V2.md) 与 [基础验收记录](docs/VALIDATION.md)。
+本地回归：172 项 Python、26 项 JavaScript 测试通过；三语手机首屏及修复复测流程已验收。详见 [Conversion V2 记录](docs/CONVERSION_V2.md)、[基础验收记录](docs/VALIDATION.md) 与 [外部试用发布准备](docs/EXTERNAL_PILOT.md)。
 
 单页技术 SEO 与 AI 搜索准备度审计工具。输入一个公开网页地址，读取服务器返回的 HTML，输出可核对的证据、问题优先级和修正建议。网站提供葡萄牙语、英语、简体中文界面，规则引擎为 `rules-v2`。
 
@@ -19,6 +19,7 @@ FAQ、数字密度、列表 / 表格和 JSON-LD 等格式的适用性取决于�
 - 报告先展示最多三项实际问题；可主动保存或导入一份本地基线，修复后复测同页，查看已解决、新增、仍存在及待确认的检查，导出比较 Markdown 或打印 PDF。
 - 比较核对页面、重定向、时间、引擎及规则版本；检查覆盖和权重一致才显示分数差值。旧报告可导入查看，版本不足时不声称修复或分数变化。
 - 三语言首页、方法说明、隐私说明、GEO 入门页；服务端输出 canonical、hreflang、结构化数据、robots.txt 和 sitemap.xml。
+- 三语言隐私页可配置真实运营信息；发布前可运行 `python -m mandapi_geo.preflight --stage preview`，输出缺项且不联网、不显示密钥。可选 Render 模板保持免费实例、无索引、无付费模型；尚未实际部署。
 - 默认每客户端每天 3 次扫描、最多 2 个并发扫描。使用单进程内存计数，UTC 00:00 重置，重启清空；失败扫描也占用已接纳的额度。
 
 还没有用户系统、付款、任务队列、历史报告数据库、全站爬取或真实 AI 引用监测。项目尚未绑定正式域名或服务器，也没有在此仓库配置远程发布目标。

@@ -4,6 +4,8 @@
 
 后续首页转化与基线复测验收见 [Conversion V2](CONVERSION_V2.md)：145 项 Python、26 项 JavaScript 及三语浏览器流程通过。以下保留基础版本的真实扫描和部署记录。
 
+再后续的外部试用准备新增 27 项配置、隐私渲染和预检测试，Python 合计 **172 passed**。三语运营信息在 375×812 浏览器中无横向溢出，缺省文案本地化，无模板占位符泄露。预检当前准确返回缺少真实运营信息与 HTTPS origin；Render 模板仅完成 YAML/默认项检查及官方规范对照，没有容器或平台部署证据。详见 [外部试用准备](EXTERNAL_PILOT.md)。
+
 ## 自动化回归
 
 执行 `.venv\Scripts\python.exe -m pytest tests -q`：**145 passed**。
