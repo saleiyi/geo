@@ -1,238 +1,84 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MandAPI GEO — Sua empresa aparece no ChatGPT?</title>
-<meta name="description" content="Descubra gratuitamente se o ChatGPT, Gemini e Perplexity conseguem encontrar e citar sua empresa. Análise de SEO técnico e visibilidade em IA.">
-<style>
-  :root {
-    --bg: #0a0f1c;
-    --panel: #121a2b;
-    --line: #223049;
-    --text: #e8eef8;
-    --muted: #8fa3bf;
-    --accent: #10b981;
-    --accent-2: #34d399;
-    --danger: #ef4444;
-    --warn: #f59e0b;
-    --info: #64748b;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.6;
-  }
-  .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px; }
-  header { padding: 28px 0; display: flex; align-items: center; gap: 10px; }
-  .logo { font-weight: 700; letter-spacing: -0.02em; font-size: 18px; }
-  .logo span { color: var(--accent); }
-  .badge-pt { margin-left: auto; font-size: 12px; color: var(--muted); border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; }
-
-  .hero { padding: 56px 0 32px; }
-  h1 { font-size: clamp(30px, 5.5vw, 52px); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 14px; }
-  h1 em { font-style: normal; color: var(--accent); }
-  .sub { font-size: clamp(17px, 2.4vw, 21px); color: var(--muted); margin: 0 0 32px; }
-  .sub strong { color: var(--text); font-weight: 600; }
-
-  form { display: flex; gap: 10px; flex-wrap: wrap; }
-  input {
-    flex: 1 1 240px; background: var(--panel); border: 1px solid var(--line);
-    color: var(--text); padding: 15px 16px; border-radius: 10px; font-size: 15px; outline: none;
-  }
-  input:focus { border-color: var(--accent); }
-  input::placeholder { color: #5d7291; }
-  button {
-    background: var(--accent); color: #04140d; border: 0; padding: 15px 26px;
-    border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
-    transition: background .15s; white-space: nowrap;
-  }
-  button:hover:not(:disabled) { background: var(--accent-2); }
-  button:disabled { opacity: .55; cursor: not-allowed; }
-  .hint { color: var(--muted); font-size: 13.5px; margin-top: 14px; }
-
-  .status { margin: 26px 0; padding: 15px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); display: none; }
-  .status.on { display: block; }
-  .status.err { border-color: #6b2230; background: #1c1119; color: #fca5a5; }
-
-  .results { margin: 38px 0 80px; display: none; }
-  .results.on { display: block; }
-
-  .score-card { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; padding: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
-  .dial { --pct: 0; width: 132px; height: 132px; border-radius: 50%; flex: none; display: grid; place-items: center;
-    background: conic-gradient(var(--accent) calc(var(--pct) * 1%), #1e2a40 0); }
-  .dial-inner { width: 104px; height: 104px; border-radius: 50%; background: var(--panel); display: grid; place-items: center; }
-  .dial-num { font-size: 34px; font-weight: 700; line-height: 1; }
-  .dial-grade { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .score-text { flex: 1 1 300px; }
-  .score-text h2 { margin: 0 0 8px; font-size: 19px; }
-  .score-text p { margin: 0; color: var(--muted); }
-
-  .areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
-  .area { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .area-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-  .area-name { font-size: 13.5px; color: var(--muted); }
-  .area-val { font-size: 22px; font-weight: 700; }
-  .bar { height: 7px; background: #1e2a40; border-radius: 999px; overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
-
-  h3.section { margin: 40px 0 16px; font-size: 17px; }
-  .issue { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; }
-  .issue.critical { border-left-color: var(--danger); }
-  .issue.high { border-left-color: var(--warn); }
-  .issue.medium { border-left-color: #eab308; }
-  .issue.low { border-left-color: var(--info); }
-  .issue-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-  .sev { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 8px; border-radius: 5px; }
-  .sev.critical { background: #4c1119; color: #fca5a5; }
-  .sev.high { background: #4a2c07; color: #fcd34d; }
-  .sev.medium { background: #423a08; color: #fde68a; }
-  .sev.low { background: #1e293b; color: #cbd5e1; }
-  .issue-head strong { font-size: 15.5px; }
-  .issue p { margin: 6px 0 0; color: var(--muted); font-size: 14.5px; }
-  .issue .fix { color: #a7f3d0; }
-  .issue .fix b { color: var(--accent); font-weight: 600; }
-
-  .cta { margin-top: 34px; padding: 28px; border-radius: 14px; background: linear-gradient(135deg, #0f2b22, #121a2b); border: 1px solid #1d4d3c; }
-  .cta h3 { margin: 0 0 8px; font-size: 19px; }
-  .cta p { margin: 0 0 18px; color: var(--muted); }
-  .cta a { display: inline-block; background: var(--accent); color: #04140d; text-decoration: none; padding: 13px 24px; border-radius: 9px; font-weight: 700; }
-  footer { border-top: 1px solid var(--line); padding: 26px 0 60px; color: var(--muted); font-size: 13px; }
-</style>
-</head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>MandAPI GEO — Auditoria SEO e preparação para buscas com IA</title>
+<meta content="Analise o SEO técnico, o conteúdo e a preparação para buscas com IA de uma página. Receba evidências, prioridades e um relatório exportável, sem cadastro." name="description"/>
+<meta content="__INDEX_ROBOTS__" name="robots"/>
+  __GOOGLE_VERIFICATION__
+  <link href="__SITE_URL__/" rel="canonical"/>
+<meta content="website" property="og:type"/>
+<meta content="pt_BR" property="og:locale"/>
+<meta content="MandAPI GEO" property="og:site_name"/>
+<meta content="Clareza para o seu próximo passo em SEO." property="og:title"/>
+<meta content="Auditoria SEO e preparação para buscas com IA. Uma página, evidências claras e próximos passos práticos." property="og:description"/>
+<meta content="__SITE_URL__/" property="og:url"/>
+<meta content="__SITE_URL__/assets/og-image.png" property="og:image"/>
+<meta content="summary_large_image" name="twitter:card"/>
+<meta content="#f8faf7" name="theme-color"/>
+<link href="/assets/favicon.svg" rel="icon" type="image/svg+xml"/>
+<link href="/assets/styles.css" rel="stylesheet"/>
+<script defer="" src="/assets/app.js"></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "MandAPI GEO", "url": "__SITE_URL__/", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "inLanguage": "pt-BR", "description": "Analise o SEO técnico, o conteúdo e a preparação para buscas com IA de uma página. Receba evidências, prioridades e um relatório exportável, sem cadastro.", "featureList": ["Auditoria de uma página HTML", "Verificações com evidências", "Relatórios em JSON e Markdown"]}</script>
+<meta content="1200" property="og:image:width"/><meta content="630" property="og:image:height"/><link href="__SITE_URL__/" hreflang="pt-BR" rel="alternate"/><link href="__SITE_URL__/en" hreflang="en" rel="alternate"/><link href="__SITE_URL__/zh" hreflang="zh-CN" rel="alternate"/><link href="__SITE_URL__/" hreflang="x-default" rel="alternate"/></head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="logo">MandAPI <span>GEO</span></div>
-    <div class="badge-pt">Português (Brasil)</div>
-  </header>
-
-  <section class="hero">
-    <h1>Sua empresa aparece no <em>ChatGPT</em>?</h1>
-    <p class="sub"><strong>Descubra gratuitamente.</strong> Analisamos seu site para o Google e para as IAs que seus clientes já usam.</p>
-
-    <form id="scan-form" autocomplete="off">
-      <input id="url" name="url" placeholder="www.suaempresa.com.br" required>
-      <input id="keyword" name="keyword" placeholder="Palavra-chave principal (opcional)">
-      <button type="submit" id="submit">Analisar grátis</button>
-    </form>
-    <p class="hint">SEO técnico + visibilidade em IA (GEO) em cerca de 10 segundos. Sem cadastro.</p>
-  </section>
-
-  <div class="status" id="status"></div>
-
-  <section class="results" id="results">
-    <div class="score-card">
-      <div class="dial" id="dial"><div class="dial-inner"><div><div class="dial-num" id="dial-num">0</div><div class="dial-grade" id="dial-grade">nota</div></div></div></div>
-      <div class="score-text">
-        <h2 id="domain">—</h2>
-        <p id="summary">—</p>
-      </div>
-    </div>
-
-    <div class="areas" id="areas"></div>
-
-    <h3 class="section">Prioridades de correção</h3>
-    <div id="issues"></div>
-
-    <div class="cta">
-      <h3>Quer que a gente corrija isso para você?</h3>
-      <p>Você recebe o plano completo de correção por página, monitoramento mensal e acompanhamento da sua visibilidade em IA.</p>
-      <a href="#scan-form" id="cta-link">Quero o plano completo</a>
-    </div>
-  </section>
-
-  <footer>
-    MandAPI GEO · Generative Engine Optimization para o mercado brasileiro · engine <span id="engine">rules-v1</span>
-  </footer>
+<a class="skip-link" href="#main">Ir para o conteúdo</a>
+<header class="site-header">
+<div class="container header-inner">
+<a aria-label="MandAPI GEO, início" class="brand" href="/"><span aria-hidden="true" class="brand-mark">m<span>↗</span></span><span>MandAPI <span class="brand-geo">GEO</span></span></a>
+<nav aria-label="Navegação principal" class="main-nav"><a href="#recursos">O que analisamos</a><a href="#como-funciona">Como funciona</a><a href="/guia-geo">Guia de GEO <span aria-hidden="true">↗</span></a></nav>
+<nav aria-label="Escolher idioma" class="language-switch"><a aria-current="page" href="/" hreflang="pt-BR" lang="pt-BR">PT</a><a href="/en" hreflang="en" lang="en">EN</a><a href="/zh" hreflang="zh-CN" lang="zh-CN">中文</a></nav><a class="button button-small button-outline header-cta" href="#url">Analisar meu site <span aria-hidden="true">↗</span></a>
 </div>
-
-<script>
-const form = document.getElementById('scan-form');
-const urlInput = document.getElementById('url');
-const kwInput = document.getElementById('keyword');
-const submit = document.getElementById('submit');
-const statusBox = document.getElementById('status');
-const results = document.getElementById('results');
-const SEV = { critical: 'CRÍTICO', high: 'ALTO', medium: 'MÉDIO', low: 'BAIXO' };
-
-function setStatus(msg, isError) {
-  statusBox.textContent = msg;
-  statusBox.className = 'status on' + (isError ? ' err' : '');
-}
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s == null ? '' : String(s);
-  return d.innerHTML;
-}
-
-function render(report) {
-  const s = report.score;
-  document.getElementById('dial').style.setProperty('--pct', s.overall);
-  document.getElementById('dial-num').textContent = s.overall;
-  document.getElementById('dial-grade').textContent = 'nota ' + s.grade;
-  document.getElementById('domain').textContent = report.domain;
-  document.getElementById('summary').textContent = s.summary;
-  document.getElementById('engine').textContent = report.engine;
-
-  const areas = report.areas || [];
-  document.getElementById('areas').innerHTML = areas.map(a => {
-    const name = a.area === 'geo' ? 'Visibilidade em IA (GEO)' : a.label;
-    return '<div class="area"><div class="area-top"><span class="area-name">' + esc(name) +
-      '</span><span class="area-val">' + a.score + '</span></div>' +
-      '<div class="bar"><i style="width:' + a.score + '%"></i></div></div>';
-  }).join('');
-
-  const issues = (report.issues || []).slice(0, 12);
-  document.getElementById('issues').innerHTML = issues.length ? issues.map(i =>
-    '<div class="issue ' + esc(i.severity) + '">' +
-      '<div class="issue-head"><span class="sev ' + esc(i.severity) + '">' + (SEV[i.severity] || i.severity) + '</span>' +
-      '<strong>' + esc(i.title) + '</strong></div>' +
-      (i.detail ? '<p>' + esc(i.detail) + '</p>' : '') +
-      (i.fix ? '<p class="fix"><b>Como corrigir:</b> ' + esc(i.fix) + '</p>' : '') +
-    '</div>'
-  ).join('') : '<div class="issue low"><p>Nenhum problema relevante encontrado. Excelente.</p></div>';
-
-  results.classList.add('on');
-  if (report.ai_summary) {
-    const box = document.createElement('div');
-    box.className = 'issue low';
-    box.innerHTML = '<div class="issue-head"><strong>Análise adicional (IA)</strong></div><p>' + esc(report.ai_summary) + '</p>';
-    document.getElementById('issues').prepend(box);
-  }
-}
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const url = urlInput.value.trim();
-  if (!url) return;
-
-  submit.disabled = true;
-  results.classList.remove('on');
-  setStatus('Analisando ' + url + ' … isso leva alguns segundos.');
-
-  try {
-    const res = await fetch('/api/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: url, keyword: kwInput.value.trim() || null, ai_summary: false })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setStatus('Não foi possível analisar: ' + (data.detail || res.status), true);
-      return;
-    }
-    setStatus('Análise concluída (' + data.elapsed_ms + ' ms).');
-    render(data);
-    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (err) {
-    setStatus('Falha de conexão: ' + err.message, true);
-  } finally {
-    submit.disabled = false;
-  }
-});
-</script>
+</header>
+<main id="main">
+<section aria-labelledby="hero-title" class="hero container">
+<div class="hero-copy">
+<p class="eyebrow"><span aria-hidden="true" class="status-dot"></span> SEO + PREPARAÇÃO PARA IA</p>
+<h1 id="hero-title">Seu próximo passo em SEO.<br/><span class="accent-text">Agora, mais claro.</span></h1>
+<p class="hero-description">Auditoria SEO e preparação para buscas com IA. Descubra o que sua página já faz bem, o que precisa de atenção e por onde começar.</p>
+<form class="scan-form" id="scan-form" novalidate="">
+<label for="url">Qual página vamos analisar?</label>
+<div class="input-action"><span aria-hidden="true" class="input-icon">↗</span><input aria-describedby="url-help url-error" autocomplete="url" id="url" inputmode="url" maxlength="2048" name="url" placeholder="seusite.com.br" required="" spellcheck="false" type="text"/><button class="button button-primary" id="submit" type="submit">Analisar página <span aria-hidden="true">→</span></button></div>
+<p class="field-error" hidden="" id="url-error" role="alert"></p>
+<p class="form-note" id="url-help"><span aria-hidden="true">✓</span> Sem cadastro <span class="note-separator">·</span> Uma URL por análise <span class="note-separator">·</span> Relatório para baixar</p>
+</form>
+<noscript><p class="notice">Ative o JavaScript para executar uma análise. O <a href="/guia-geo">guia de GEO</a> e a <a href="/metodologia">metodologia</a> estão disponíveis sem JavaScript.</p></noscript>
+<p class="hero-footnote">Analisamos o HTML público. Não medimos posições no Google ou citações reais em ferramentas de IA. <a href="/metodologia">Entenda o método.</a></p>
+</div>
+<div aria-label="Prévia ilustrativa de um relatório, com notas fictícias" class="hero-visual">
+<div aria-hidden="true" class="visual-grid"></div>
+<div class="preview-card">
+<div class="preview-top"><span class="tiny-label">VISÃO GERAL DA PÁGINA</span><span class="demo-pill">Exemplo ilustrativo</span></div>
+<div class="preview-domain"><span aria-hidden="true" class="site-icon">↗</span><span>exemplo.com.br<span class="preview-caption">Uma página. Um ponto de partida.</span></span><span aria-hidden="true" class="preview-menu">···</span></div>
+<div class="preview-score"><div class="score-ring" style="--score:76"><div><strong>76<span>/100</span></strong><span>Nota ilustrativa</span></div></div><div class="preview-score-copy"><span class="tag tag-green">Há espaço para evoluir</span><h2>Oportunidades claras.<br/>Próximos passos práticos.</h2><p>Critérios verificáveis.<br/>Sem promessa de ranking.</p></div></div>
+<div class="preview-bars"><div><span>SEO técnico</span><strong>84</strong><span class="mini-bar"><i style="width:84%"></i></span></div><div><span>Preparação para IA</span><strong>68</strong><span class="mini-bar"><i style="width:68%"></i></span></div><div><span>Verificações aprovadas</span><strong>3/7</strong><span class="mini-bar"><i style="width:43%"></i></span></div></div>
+<div class="preview-finding"><span aria-hidden="true" class="finding-icon">!</span><div><strong>Uma descrição mais útil</strong><p>Explique o conteúdo da página em uma frase clara.</p></div><span aria-hidden="true">↗</span></div>
+<button class="preview-link" id="demo-button" type="button">Explorar relatório de exemplo <span aria-hidden="true">→</span></button>
+</div>
+<div class="visual-note"><span aria-hidden="true">↳</span> Da análise para a ação, sem adivinhação.</div>
+</div>
+</section>
+<div class="container"><div aria-label="Princípios da ferramenta" class="capability-strip"><span><span aria-hidden="true">◎</span> Evidências do HTML</span><span><span aria-hidden="true">≡</span> Prioridades de correção</span><span><span aria-hidden="true">↓</span> Relatório exportável</span><span><span aria-hidden="true">◇</span> Método transparente</span></div></div>
+<section aria-label="Andamento da análise" class="container scan-feedback" hidden="" id="scan-feedback"><div class="feedback-inner"><span aria-hidden="true" class="spinner" id="spinner"></span><div><p aria-atomic="true" aria-live="polite" id="status" role="status"></p><p class="small muted" id="status-detail"></p></div><button class="button button-small button-outline" hidden="" id="cancel-button" type="button">Cancelar</button></div></section>
+<section aria-busy="false" aria-labelledby="report-title" class="container report-section" hidden="" id="results">
+<div class="demo-banner" hidden="" id="demo-banner"><strong>Relatório de demonstração.</strong> Todos os dados abaixo são fictícios e mostram como interpretar uma análise. <a href="#url">Analisar minha página →</a></div>
+<div class="section-heading report-heading"><div><p class="eyebrow">DA EVIDÊNCIA À AÇÃO</p><h2 id="report-title" tabindex="-1">Seu diagnóstico, por inteiro.</h2></div><div class="report-actions"><button class="button button-small button-outline" id="download-json" type="button">↓ JSON</button><button class="button button-small button-outline" id="download-md" type="button">↓ Markdown</button><button class="button button-small button-outline" id="print-report" type="button">Imprimir / PDF</button><button class="button button-small button-dark" id="rescan" type="button">Analisar novamente ↗</button></div></div>
+<div class="report-overview"><div class="report-score"><div class="score-ring" id="report-ring"><div><strong id="overall-score">—</strong><span>de 100 pontos</span></div></div><div><p class="tiny-label">PONTUAÇÃO HEURÍSTICA</p><h3 id="report-domain"></h3><p class="muted" id="report-summary"></p></div></div><dl class="report-meta"><div><dt>Página solicitada</dt><dd id="report-url"></dd></div><div><dt>URL final</dt><dd id="report-final-url"></dd></div><div><dt>Analisada em</dt><dd id="report-date"></dd></div><div><dt>Tempo total</dt><dd id="report-time"></dd></div></dl></div>
+<p class="report-scope" id="report-scope">Escopo: HTML de uma página e arquivos públicos de apoio. Sem renderização JavaScript, rastreamento completo do site ou verificação de posições e citações. A nota orienta a revisão; não garante ranking.</p>
+<div class="area-grid" id="area-scores"></div>
+<div class="report-block-heading"><div><h3>Prioridades de correção <span class="count-badge" id="issue-total"></span></h3><p class="muted small">Revise a evidência antes de aplicar cada recomendação.</p></div><div class="filters"><label>Área<select id="area-filter"><option value="all">Todas as áreas</option><option value="seo">SEO técnico</option><option value="geo">Preparação para IA</option></select></label><label>Severidade<select id="severity-filter"><option value="all">Todas as severidades</option><option value="critical">Crítica</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label></div></div>
+<p aria-live="polite" class="small muted" id="filter-count"></p><div class="issue-list" id="issues"></div>
+<div class="report-block-heading"><div><h3>Todas as verificações <span class="count-badge" id="check-total"></span></h3><p class="muted small">Abra uma verificação para consultar o valor encontrado e a orientação. O filtro de área também se aplica aqui.</p></div></div>
+<div class="check-list" id="checks"></div>
+<p class="report-engine small muted">Motor de análise: <span id="engine"></span> · <a href="/metodologia">Como interpretar estas notas</a></p>
+</section>
+<section aria-labelledby="resources-title" class="section container" id="recursos"><div class="section-heading"><div><p class="eyebrow">O QUE ANALISAMOS</p><h2 id="resources-title">O essencial, conectado.</h2></div><p>Uma base técnica sólida e conteúdo compreensível<br class="desktop-break"/> ajudam pessoas e mecanismos de busca.</p></div><div class="feature-grid"><article class="feature-card"><span aria-hidden="true" class="feature-icon">⌘</span><span class="feature-number">01 / ESTRUTURA</span><h3>SEO técnico</h3><p>Confira título, descrição, canonical, HTTPS e sinais de indexação. Encontre detalhes que merecem revisão.</p><ul class="clean-list"><li>Metadados e hierarquia de títulos</li><li>robots.txt e descoberta do sitemap</li><li>Imagens e estrutura semântica</li></ul></article><article class="feature-card"><span aria-hidden="true" class="feature-icon">✳</span><span class="feature-number">02 / CLAREZA</span><h3>Preparação para IA</h3><p>Veja sinais de conteúdo identificável, organizado e acessível a crawlers. Uma leitura prática da sua página.</p><ul class="clean-list"><li>Regras de crawlers nos arquivos públicos</li><li>Dados estruturados e identificação</li><li>Respostas, fontes e organização</li></ul></article><article class="feature-card"><span aria-hidden="true" class="feature-icon">≡</span><span class="feature-number">03 / UTILIDADE</span><h3>Conteúdo que faz sentido</h3><p>Identifique oportunidades na organização do texto, nos links e na apresentação de informações úteis.</p><ul class="clean-list"><li>Conteúdo disponível no HTML</li><li>Títulos, listas e links</li><li>Evidências e orientações de revisão</li></ul></article></div></section>
+<section aria-labelledby="how-title" class="how-section" id="como-funciona"><div class="container how-layout"><div><p class="eyebrow">SEM COMPLICAÇÃO</p><h2 id="how-title">Da URL ao<br/>próximo passo.</h2><p class="muted">Você entende o diagnóstico.<br/>Você decide o que melhorar.</p><a class="text-link" href="/metodologia">Conheça a metodologia <span aria-hidden="true">↗</span></a></div><ol class="steps"><li><span class="step-number">01</span><div><h3>Escolha uma página pública</h3><p>Cole a URL da página que deseja revisar. Pode ser a página inicial, um serviço ou um artigo.</p></div></li><li><span class="step-number">02</span><div><h3>Leia os sinais encontrados</h3><p>Consulte as notas por área, filtre as prioridades e abra as evidências de cada verificação.</p></div></li><li><span class="step-number">03</span><div><h3>Transforme o relatório em melhorias</h3><p>Exporte os resultados, faça os ajustes e analise novamente. Compare sempre páginas e condições equivalentes.</p></div></li></ol></div></section>
+<section aria-labelledby="faq-title" class="section container faq-layout" id="perguntas"><div><p class="eyebrow">PERGUNTAS FREQUENTES</p><h2 id="faq-title">Clareza também<br/>sobre os limites.</h2><p class="muted">O que a ferramenta faz.<br/>E como usar o resultado.</p></div><div class="faq-list"><details><summary>O que é GEO?<span aria-hidden="true">+</span></summary><p>GEO, ou Generative Engine Optimization, é um termo usado para práticas que tornam conteúdo mais acessível e compreensível em experiências de busca com IA. Aqui, a análise se concentra em sinais técnicos e editoriais do HTML, com base em fundamentos de SEO. <a href="/guia-geo">Leia o guia prático.</a></p></details><details><summary>A ferramenta verifica se minha empresa aparece no ChatGPT?<span aria-hidden="true">+</span></summary><p>Não. A ferramenta não consulta respostas do ChatGPT, Gemini ou outros assistentes, nem acompanha posições no Google. O relatório avalia sinais de preparação da página. Uma boa nota não garante indexação, ranking ou citação.</p></details><details><summary>O site inteiro é analisado?<span aria-hidden="true">+</span></summary><p>Cada análise considera o HTML retornado por uma única URL e arquivos públicos de apoio, como robots.txt e sitemap. Não há navegação por todas as páginas nem execução de JavaScript. Conteúdo carregado apenas no navegador pode não ser detectado.</p></details><details><summary>Como as notas são calculadas?<span aria-hidden="true">+</span></summary><p>As notas são heurísticas: verificações com pesos produzem um resumo por área. Os resultados ajudam a priorizar uma revisão, mas não substituem auditoria humana, dados de tráfego ou testes de desempenho. Consulte as evidências, não apenas a pontuação. <a href="/metodologia">Entenda os critérios.</a></p></details><details><summary>Preciso criar uma conta? Os relatórios são salvos?<span aria-hidden="true">+</span></summary><p>Não é necessário criar conta. A aplicação não mantém um histórico persistente de relatórios. Você pode baixar os dados localmente em JSON ou Markdown, ou salvar em PDF pelo navegador. Infraestrutura e servidor podem manter logs operacionais; consulte a <a href="/privacidade">política de privacidade</a>.</p></details><details><summary>Por que uma página pode não ser analisada?<span aria-hidden="true">+</span></summary><p>A página precisa ser pública, acessível por HTTP ou HTTPS e retornar HTML. Bloqueios de automação, autenticação, limites de requisições, erros de rede ou tempo de resposta elevado podem impedir a leitura. Endereços internos e privados não são aceitos.</p></details></div></section>
+<section class="container closing-section"><div class="closing-card"><div><p class="eyebrow">COMECE PELO QUE VOCÊ PODE VER</p><h2>Uma página. Mais clareza.<br/>Seu próximo passo.</h2></div><a class="button button-primary" href="#url">Analisar minha página <span aria-hidden="true">↗</span></a></div></section>
+</main>
+<footer class="site-footer"><div class="container"><div class="footer-top"><div><a class="brand" href="/"><span aria-hidden="true" class="brand-mark">m<span>↗</span></span><span>MandAPI <span class="brand-geo">GEO</span></span></a><p>Fundamentos sólidos para um novo jeito de buscar.</p></div><nav aria-label="Links do rodapé"><a href="/guia-geo">Guia de GEO</a><a href="/metodologia">Metodologia</a><a href="/privacidade">Privacidade</a></nav></div><div class="footer-bottom"><span>MandAPI GEO · Português (Brasil)</span><span>Auditoria de uma página. Sem garantia de ranking.</span></div></div></footer>
 </body>
 </html>

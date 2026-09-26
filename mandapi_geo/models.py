@@ -69,6 +69,8 @@ class PageFacts(BaseModel):
     lang: str | None = None
     has_viewport: bool = False
     meta_robots: str | None = None
+    x_robots_tag: str | None = None
+    robots_directives: dict[str, list[str]] = Field(default_factory=dict)
     hreflang: list[str] = Field(default_factory=list)
 
     og_tags: list[str] = Field(default_factory=list)
@@ -87,6 +89,7 @@ class PageFacts(BaseModel):
 
     images_total: int = 0
     images_with_alt: int = 0
+    images_with_empty_alt: int = 0
     internal_links: int = 0
     external_links: int = 0
 
@@ -94,6 +97,7 @@ class PageFacts(BaseModel):
     text: str = ""
     text_html_ratio: float = 0.0
     first_paragraph: str = ""
+    first_paragraph_length: int = 0
 
     has_main: bool = False
     has_article: bool = False
@@ -120,7 +124,7 @@ class PageFacts(BaseModel):
     def alt_coverage(self) -> float:
         if self.images_total == 0:
             return 1.0
-        return self.images_with_alt / self.images_total
+        return (self.images_with_alt + self.images_with_empty_alt) / self.images_total
 
 
 class SiteFacts(BaseModel):
@@ -150,7 +154,15 @@ class ScanReport(BaseModel):
     facts: PageFacts | None = None
     site: SiteFacts | None = None
     ai_summary: str | None = None
-    engine: str = "rules-v1"
+    engine: str = "rules-v2"
+    scope: Literal["single_page"] = "single_page"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "Auditoria de uma única página e dos arquivos públicos da origem; não é um rastreamento completo do site.",
+        "O HTML recebido é analisado sem executar JavaScript; conteúdo renderizado no navegador pode não aparecer.",
+        "As notas são heurísticas de preparação técnica, não medem ranking, tráfego, indexação efetiva ou citações reais por IA.",
+        "Regras de robots.txt indicam permissões declaradas; não comprovam acesso real de cada robô, CDN ou firewall.",
+        "A palavra-chave informada é contexto; não há pesquisa de volume, concorrência ou posição nos resultados.",
+    ])
 
     def area(self, name: Area) -> AreaReport | None:
         for item in self.areas:

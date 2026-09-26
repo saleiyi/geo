@@ -30,13 +30,12 @@ def scan(url: str, keyword: str | None = None, ai_summary: bool = False) -> Scan
         raise ScanError(f"Não foi possível acessar {target}: {reason}")
 
     page = parse_page(fetch)
-    # O texto bruto não precisa ir inteiro para o JSON do relatório.
-    page.text = page.text[:5000]
-
     site = collect_site_facts(fetch.final_url or target)
 
     seo_checks, seo_issues = seo_analyzer.analyze(page, site)
     geo_checks, geo_issues = geo_analyzer.analyze(page, site)
+    # Only truncate the returned evidence after every analyzer has seen the full text.
+    page.text = page.text[:5000]
 
     areas = [
         build_area("seo", seo_checks, seo_issues),
@@ -61,6 +60,6 @@ def scan(url: str, keyword: str | None = None, ai_summary: bool = False) -> Scan
         summary = generate_ai_summary(report)
         if summary:
             report.ai_summary = summary
-            report.engine = "rules-v1+llm"
+            report.engine = "rules-v2+llm"
 
     return report

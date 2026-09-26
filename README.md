@@ -1,137 +1,91 @@
 # MandAPI GEO
 
-**AI Search Visibility + SEO Content Intelligence — mercado brasileiro / LatAm.**
+![中文版首页](docs/screenshots/professional-zh-hero.png)
 
-输入一个网址，输出一份报告：这个站在 Google 排得怎么样、**以及 ChatGPT / Gemini / Perplexity 能不能找到并引用它**。
+本轮本地验收：145 项测试通过，三语浏览器交互及真实扫描已验证。详见 [验收记录](docs/VALIDATION.md)。
 
-> 定位一句话（葡语落地页主标题）：
-> **"Sua empresa aparece no ChatGPT? Descubra gratuitamente."**
+单页技术 SEO 与 AI 搜索准备度审计工具。输入一个公开网页地址，读取服务器返回的 HTML，输出可核对的证据、问题优先级和修正建议。网站提供葡萄牙语、英语、简体中文界面，规则引擎为 `rules-v2`。
 
----
+评分是针对已执行检查的启发式结果。它不能证明 Google 排名、实际流量或 ChatGPT / Gemini / Perplexity 的引用情况；当前不执行 JavaScript，也不扫描整个网站。`llms.txt`、训练爬虫和扩展用途的 robots 规则作为观察项展示，不据此断言品牌在 AI 中“不可见”。
 
-## 0. Como aparece para o cliente
+FAQ、数字密度、列表 / 表格和 JSON-LD 等格式的适用性取决于页面内容，不要求每个页面都有；缺少这些可选形式不会被统一判为高危缺陷。请求超时或文件格式无效表示证据不足，不自动等同于明确缺失或封禁。
 
-**落地页（pt-BR）**
+## 当前功能
 
-![Landing page](docs/screenshots/landing-hero.png)
+- HTML 元数据、canonical、标题结构、链接、图片、JSON-LD、页面内容和索引指令检查。
+- 按目标页面路径评估搜索爬虫的 robots 规则，支持重复分组、连续 User-agent、Allow 优先级及通配符；区分缺失、无法确认和明确封禁。
+- 获取并校验 robots.txt、sitemap、llms.txt。公开地址限制、DNS 校验、固定 IP 连接、逐跳重定向校验和请求资源上限同时生效。
+- SEO / GEO 分项报告、证据与建议；网页可导出 JSON 和 Markdown。CLI 默认输出葡萄牙语报告。
+- 三语言首页、方法说明、隐私说明、GEO 入门页；服务端输出 canonical、hreflang、结构化数据、robots.txt 和 sitemap.xml。
+- 默认每客户端每天 3 次扫描、最多 2 个并发扫描。使用单进程内存计数，UTC 00:00 重置，重启清空；失败扫描也占用已接纳的额度。
 
-**扫描结果（分数 + 优先级问题清单）**
+还没有用户系统、付款、任务队列、历史报告数据库、全站爬取或真实 AI 引用监测。项目尚未绑定正式域名或服务器，也没有在此仓库配置远程发布目标。
 
-![Relatorio com score](docs/screenshots/landing-results.png)
+## 本地运行
 
----
-
-## 1. 现在能跑什么
-
-| 能力 | 状态 | 说明 |
-| --- | --- | --- |
-| 抓取网页 | ✅ | httpx，跟随重定向，记录耗时/字节/状态码 |
-| 解析 HTML | ✅ | title / meta / H 标签 / JSON-LD / 图片 / 链接 / 文本 |
-| SEO 分析 | ✅ | 18 项检查（title、meta、H1、canonical、viewport、HTTPS、schema、robots、sitemap、TTFB…） |
-| GEO 分析 | ✅ | 15 项检查（llms.txt、**AI bot 屏蔽**、实体 schema、FAQ、answer-first、可抽取性、引用信号…） |
-| 评分 | ✅ | 分领域加权 → 0-100 + A-F 等级 + 葡语诊断摘要 |
-| 报告 | ✅ | Markdown（确定性，无需 LLM）+ 可选 AI 自然语言增强 |
-| CLI | ✅ | `mandapi-geo <url>` |
-| HTTP API | ✅ | FastAPI，`POST /api/scan` |
-| 葡语落地页 | ✅ | `web/index.html`，输入网址→出分数与问题清单 |
-| 测试 | ✅ | 20 个，含历史 bug 的回归测试 |
-
-### 还没做（故意不做）
-
-- 多页爬取 / 全站扫描（现在只分析单页）
-- SERP Top10 内容差距分析（需要付费 SERP API，属"后续扩展"）
-- 用户系统、计费、任务队列、数据库（"验证付费意愿后再做"）
-- 限流（配置项 `FREE_SCAN_DAILY_LIMIT` 已留，逻辑未接）
-
----
-
-## 2. 快速开始
+需要 Python 3.10+；容器使用 Python 3.12。以下命令在仓库根目录运行，示例为 PowerShell：
 
 ```powershell
-# 依赖
 uv venv
 uv pip install -e ".[dev]"
-
-# CLI：分析一个站
-.venv\Scripts\python.exe -m mandapi_geo.cli https://www.exemplo.com.br
-# 带 AI 摘要（需 LLM_API_KEY）：
-.venv\Scripts\python.exe -m mandapi_geo.cli https://www.exemplo.com.br --llm
-# 同时导出 JSON：
-.venv\Scripts\python.exe -m mandapi_geo.cli https://www.exemplo.com.br --json reports/exemplo.json
-
-# 网页（落地页 + API）
-.venv\Scripts\uvicorn.exe mandapi_geo.api:app --reload --port 8000
-# 打开 http://localhost:8000
-
-# 测试
-.venv\Scripts\python.exe -m pytest tests/ -q
+Copy-Item .env.example .env
+.venv\Scripts\python.exe -m uvicorn mandapi_geo.api:app --host 127.0.0.1 --port 8000 --reload --no-proxy-headers
 ```
 
-配置：复制 `.env.example` 为 `.env`。**不配任何 key 也能完整跑通**——LLM 只是可选增强。
+打开 [葡萄牙语首页](http://127.0.0.1:8000/)、[英语首页](http://127.0.0.1:8000/en) 或 [中文首页](http://127.0.0.1:8000/zh)。Linux / macOS 使用 `.venv/bin/python`。无需 API Key 即可运行全部规则检查。
 
----
+| 页面 | 葡萄牙语 | 英语 | 中文 |
+| --- | --- | --- | --- |
+| 首页 | `/` | `/en` | `/zh` |
+| 方法说明 | `/metodologia` | `/en/metodologia` | `/zh/metodologia` |
+| 隐私说明 | `/privacidade` | `/en/privacidade` | `/zh/privacidade` |
+| GEO 入门 | `/guia-geo` | `/en/guia-geo` | `/zh/guia-geo` |
 
-## 3. 评分校准（真实数据）
+HTML 文件随仓库提供；编辑页面生成源后运行 `.venv\Scripts\python.exe web/build_pages.py`，再检查三个语言版本。正式部署步骤见 [部署说明](docs/DEPLOYMENT.md)。
 
-拿真实站点跑过，确认分数有区分度、不是"什么站都低分"：
+## API 与 CLI
 
-| 站点 | SEO | GEO | 总分 | 等级 |
-| --- | ---: | ---: | ---: | --- |
-| hostinger.com.br（技术 SEO 强） | 94 | 78 | **86** | **A** |
-| sebrae.com.br | 76 | 40 | 58 | C |
-| example.com（裸页） | 50 | 40 | 45 | D |
+`POST /api/scan` 请求示例：
 
-两个可复用的商业洞察：
-
-1. **优化好的站能拿 A** —— 报告有可信度，不是恐吓式营销。
-2. **GEO 普遍显著落后 SEO**（Sebrae 40 vs 76）—— 这正是销售话术：
-   > "No Google você está bem. Na IA, você é invisível."
-
----
-
-## 4. 架构与"换模块"契约
-
-```text
-URL
- └─> fetcher.py        抓取（httpx）
-      └─> parser.py     HTML → PageFacts
-           ├─> analyzers/seo.py    → (checks, issues)
-           └─> analyzers/geo.py    → (checks, issues)
-                └─> scoring.py     → 加权评分
-                     └─> report.py → Markdown / LLM 摘要
+```json
+{
+  "url": "https://example.com/",
+  "keyword": null,
+  "ai_summary": false,
+  "language": "zh-CN"
+}
 ```
 
-**设计目标：任何一层都能被开源项目整层替换，不用动其他层。**
+`language` 支持 `pt-BR`、`en`、`zh-CN`，默认 `pt-BR`。`keyword` 是可选的报告上下文，目前不触发关键词排名或搜索结果分析。响应包含 `score`、`areas`、`issues`、`facts`、`site` 等字段。输入无效返回 400，校验失败或页面无法扫描返回 422，额度用完返回 429，扫描容量已满返回 503。请求体上限为 8 KiB；上传请求体超时返回 408。`GET /health` 提供健康状态。
 
-| 想替换 | 只改这一个文件 | 保持的签名 |
-| --- | --- | --- |
-| 抓取 → Crawl4AI / Firecrawl | `fetcher.py` | `fetch_page(url) -> FetchResult` |
-| SEO → crawlseo | `analyzers/seo.py` | `analyze(page, site) -> (list[Check], list[Issue])` |
-| GEO → geo-optimizer-skill | `analyzers/geo.py` | 同上 |
-| 报告 → Dify | `report.py` | `generate_ai_summary(report) -> str | None` |
+```powershell
+.venv\Scripts\python.exe -m mandapi_geo.cli https://example.com/
+.venv\Scripts\python.exe -m mandapi_geo.cli https://example.com/ --json reports/example.json
+```
 
-现在**刻意不 fork 这些仓库**：栈各不相同（TS/Go/Python），全部拉起等于 4 套部署 + 4 套认证，违反"禁止过度工程化"。
-先用自家规则引擎跑通闭环，验证有人付钱后，再按层替换。
+CLI 的 `--llm` 为可选葡萄牙语摘要，需要自行配置 `LLM_API_KEY` 与服务地址，可能产生服务商费用。公开 API 的 `ai_summary` 默认关闭；只有 `PUBLIC_AI_SUMMARY=true` 且请求语言为 `pt-BR` 时允许开启。LLM 摘要不增加搜索排名或引用测量能力。
 
-复用池验真结论见 **[`docs/REUSE_POOL.md`](docs/REUSE_POOL.md)**（含一条 license 警告）。
+## 验证与部署
 
----
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q
+```
 
-## 5. 任务书进度
+测试覆盖规则、评分、网络护栏及 API 等回归场景，以仓库中的测试为准。需要额外检查交互时，可选使用 Playwright 检查桌面 / 移动视口、三语言切换、扫描错误、报告导出和键盘导航；它不是生产运行依赖，也不能替代真实浏览器验收。
 
-| Task | 内容 | 状态 |
-| --- | --- | --- |
-| 1 | 开源项目验证 | ✅ 六个仓库逐个 API 验真，产出 `docs/REUSE_POOL.md` |
-| 2 | 第一个 Demo | ✅ CLI 可对任意网址出报告 |
-| 3 | 营销页面 | ✅ `web/index.html`（pt-BR，输入网址即出分数） |
-| 4 | 找 20 家巴西企业 | ⬜ 待做（需人工触达） |
+`requirements.lock` 固定生产依赖并记录哈希。Docker 使用 `pip install --require-hashes -r requirements.lock` 安装依赖，从源代码工作目录启动单个 Uvicorn worker，并复制 `web/` 页面和资源。`compose.yaml` 默认只发布到宿主机 `127.0.0.1:8000`，不自动申请域名、TLS、服务器或付费服务。
 
----
+默认 `SITE_INDEXABLE=false`：页面带 noindex、robots 禁止抓取、sitemap 无页面条目。确认 HTTPS 域名、运营信息和生产配置后，设置 `SITE_URL=https://你的实际域名` 及 `SITE_INDEXABLE=true`。`SITE_URL` 必须是无子路径的公开 HTTP(S) origin；不要填写 `/geo` 等前缀。
 
-## 6. 已知问题（技术债，按优先级）
+## 数据与后续迭代
 
-1. **robots.txt 缺失会被报两次**（SEO 一次、GEO 一次），文案不同但根因相同 → 付费报告里显得凑数。建议去重。
-2. **被反爬站点报错不友好**：Rock Content 返回 429，用户看到的是 `HTTP 429` 而不是"该站点拦截了我们的机器人"。
-3. **单页分析**：只看入口页，不爬内链 → 无法给全站结论。
-4. **TTFB 是本机测量**：不是用户所在地的真实速度，文案已注明测量来源，但数值参考性有限。
-5. **无持久化**：每次扫描 stateless，无法做"环比上次"的复购钩子。
+服务端目前不持久保存扫描报告，不建立用户账户。限流在内存保存短期加盐 IP 哈希；客户端 IP 仍会在请求处理阶段被使用。应用运行日志、反向代理和托管平台可能保留 IP、访问路径和时间；开启 LLM 摘要会把报告中的域名、评分和部分问题描述发送给配置的服务商。正式上线前，需要补充真实运营主体、托管商、日志保留规则及联系邮箱，更新三语言隐私页面。
+
+下一阶段按以下顺序推进：
+
+1. 确定域名与托管环境，部署 HTTPS 预览并验收，再开启索引、配置 Search Console 和基础监控。
+2. 将真实 AI 引用测量设计成独立能力，记录查询、平台、日期、地区、实际答案与引用证据；与本工具的技术准备度评分分别呈现。
+3. 增加有页面数、深度、时长限制的全站 crawl，再提供站内链接、模板问题和跨页面汇总。
+4. 验证真实用户如何使用报告及付费意愿，再建设账户、共享限流、历史报告、任务队列和计费。
+
+抓取、解析、分析、评分、报告依次位于 `network.py` / `fetcher.py`、`parser.py`、`analyzers/`、`scoring.py`、`report.py`。历史开源方案调查保留在 [REUSE_POOL.md](docs/REUSE_POOL.md)，其中的候选方案不代表当前已集成。

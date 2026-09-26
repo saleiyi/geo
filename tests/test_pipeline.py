@@ -97,7 +97,7 @@ def test_missing_robots_does_not_claim_bots_are_blocked() -> None:
     """Bug encontrado rodando contra example.com.
 
     Sem robots.txt, o relatório afirmava 'Bots de IA estão bloqueados'.
-    Agora precisa dizer que o arquivo está ausente.
+    HTTP 404 significa ausência de regras, não uma falha de acesso declarada.
     """
     page = make_page()
     site = SiteFacts(robots_txt=None, robots_status=404)
@@ -105,27 +105,25 @@ def test_missing_robots_does_not_claim_bots_are_blocked() -> None:
     checks, issues = geo_analyzer.analyze(page, site)
 
     crawler_check = next(c for c in checks if c.id == "geo.ai_crawlers")
-    assert crawler_check.status == "warn"
+    assert crawler_check.status == "pass"
     assert "bloqueado" not in (crawler_check.value or "").lower()
 
     crawler_issues = [i for i in issues if i.id == "geo.ai_crawlers"]
-    assert len(crawler_issues) == 1
-    assert "ausente" in crawler_issues[0].title.lower()
-    assert "bloqueado" not in crawler_issues[0].title.lower()
+    assert crawler_issues == []
 
 
-def test_blocked_bots_produces_critical_issue() -> None:
+def test_blocked_search_bots_produce_actionable_issue() -> None:
     page = make_page()
     site = SiteFacts(
-        robots_txt="User-agent: GPTBot\nDisallow: /\n",
+        robots_txt="User-agent: OAI-SearchBot\nDisallow: /\n",
         robots_status=200,
-        ai_crawler_rules=parse_robots_ai_rules("User-agent: GPTBot\nDisallow: /\n"),
+        ai_crawler_rules=parse_robots_ai_rules("User-agent: OAI-SearchBot\nDisallow: /\n"),
     )
     checks, issues = geo_analyzer.analyze(page, site)
     crawler_check = next(c for c in checks if c.id == "geo.ai_crawlers")
     assert crawler_check.status == "fail"
     crawler_issue = next(i for i in issues if i.id == "geo.ai_crawlers")
-    assert crawler_issue.severity == "critical"
+    assert crawler_issue.severity == "high"
 
 
 # ------------------------------------------------------------------- parsing
@@ -191,7 +189,7 @@ def test_well_optimized_page_scores_high() -> None:
     assert card.grade in {"A", "B"}
 
 
-def test_bare_page_scores_low() -> None:
+def test_bare_page_reports_missing_technical_basics() -> None:
     page = make_page("<html><body><h1>Oi</h1></body></html>")
     site = SiteFacts(robots_status=404)
     seo_checks, seo_issues = seo_analyzer.analyze(page, site)
@@ -201,8 +199,12 @@ def test_bare_page_scores_low() -> None:
         build_area("geo", geo_checks, geo_issues),
     ]
     card = build_scorecard(areas)
-    assert card.overall < 45
-    assert card.grade in {"D", "F"}
+    # Crawl permissions can pass even on an empty page. Assert actual defects,
+    # rather than forcing an arbitrary combined score with optional-file penalties.
+    assert card.seo < 55
+    failures = {item.id for item in seo_checks if item.status == "fail"}
+    assert {"seo.title", "seo.meta_description", "seo.viewport"} <= failures
+    assert "heurística" in card.summary
 
 
 def test_area_score_is_bounded() -> None:

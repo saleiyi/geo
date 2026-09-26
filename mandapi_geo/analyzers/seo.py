@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from ..models import Check, Issue, PageFacts, SiteFacts
 
 AREA = "seo"
@@ -47,6 +49,9 @@ def _check(
 def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]:
     checks: list[Check] = []
     issues: list[Issue] = []
+    sample = (page.title or "") + (page.meta_description or "") + page.text[:1000]
+    cjk_count = len(re.findall(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", sample))
+    cjk = (page.lang or "").lower().startswith(("zh", "ja", "ko")) or cjk_count / max(len(sample), 1) >= 0.2
 
     # ------------------------- Disponibilidade -------------------------
 
@@ -90,32 +95,38 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="seo.title", label="Tag title", status="fail", weight=3.0,
             value="ausente",
-            hint=f"Ideal entre {TITLE_MIN} e {TITLE_MAX} caracteres.",
+            hint=f"Referência editorial de {TITLE_MIN}-{TITLE_MAX} caracteres, sem limite universal de ranking.",
             severity="critical",
             title="Página sem tag title",
             detail="A página não possui <title>.",
             fix=f"Escreva um title de {TITLE_MIN}-{TITLE_MAX} caracteres com a palavra-chave principal.",
             impact=12,
         )
+    elif cjk:
+        _check(
+            checks, issues, cid="seo.title", label="Tag title", status="info", weight=0.0,
+            value=f"{title_len} caracteres",
+            hint="Título detectado em contexto CJK. Limites editoriais de caracteres latinos não se aplicam; revise clareza e exibição no idioma.",
+        )
     elif TITLE_MIN <= title_len <= TITLE_MAX:
         _check(
             checks, issues,
             cid="seo.title", label="Tag title", status="pass", weight=3.0,
             value=f"{title_len} caracteres",
-            hint=f"Ideal entre {TITLE_MIN} e {TITLE_MAX} caracteres.",
+            hint=f"Referência editorial de {TITLE_MIN}-{TITLE_MAX} caracteres, sem limite universal de ranking.",
         )
     else:
         _check(
             checks, issues,
             cid="seo.title", label="Tag title", status="warn", weight=3.0,
             value=f"{title_len} caracteres",
-            hint=f"Ideal entre {TITLE_MIN} e {TITLE_MAX} caracteres.",
+            hint=f"Referência editorial de {TITLE_MIN}-{TITLE_MAX} caracteres, sem limite universal de ranking.",
             severity="medium",
             title="Title fora do tamanho ideal",
             detail=f'Título atual tem {title_len} caracteres: "{(page.title or "")[:90]}".',
             fix=(
                 f"Reescreva o title com {TITLE_MIN}-{TITLE_MAX} caracteres, incluindo a "
-                "palavra-chave principal. Títulos longos são cortados no Google."
+                "tema principal. A exibição depende da largura, consulta e dispositivo; o Google pode reescrever o título."
             ),
             impact=8,
         )
@@ -128,29 +139,35 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="seo.meta_description", label="Meta description", status="fail", weight=2.0,
             value="ausente",
-            hint=f"Ideal entre {DESC_MIN} e {DESC_MAX} caracteres.",
+            hint=f"Referência editorial de {DESC_MIN}-{DESC_MAX} caracteres; o buscador pode gerar outro trecho.",
             severity="high",
             title="Meta description ausente",
             detail="A página não possui meta description.",
             fix=(
                 f"Escreva uma meta description de {DESC_MIN}-{DESC_MAX} caracteres que resuma "
-                "a página e chame o clique. É o texto que aparece no resultado do Google."
+                "a página e seja útil ao leitor. O Google pode usar outro trecho no resultado."
             ),
             impact=6,
+        )
+    elif cjk:
+        _check(
+            checks, issues, cid="seo.meta_description", label="Meta description", status="info", weight=0.0,
+            value=f"{desc_len} caracteres",
+            hint="Descrição detectada em contexto CJK. Revise a utilidade no idioma; a quantidade de caracteres não determina o trecho exibido.",
         )
     elif DESC_MIN <= desc_len <= DESC_MAX:
         _check(
             checks, issues,
             cid="seo.meta_description", label="Meta description", status="pass", weight=2.0,
             value=f"{desc_len} caracteres",
-            hint=f"Ideal entre {DESC_MIN} e {DESC_MAX} caracteres.",
+            hint=f"Referência editorial de {DESC_MIN}-{DESC_MAX} caracteres; o buscador pode gerar outro trecho.",
         )
     else:
         _check(
             checks, issues,
             cid="seo.meta_description", label="Meta description", status="warn", weight=2.0,
             value=f"{desc_len} caracteres",
-            hint=f"Ideal entre {DESC_MIN} e {DESC_MAX} caracteres.",
+            hint=f"Referência editorial de {DESC_MIN}-{DESC_MAX} caracteres; o buscador pode gerar outro trecho.",
             severity="low",
             title="Meta description fora do tamanho ideal",
             detail=f"Descrição atual tem {desc_len} caracteres.",
@@ -165,14 +182,14 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="seo.h1", label="H1 único", status="pass", weight=2.5,
             value="1",
-            hint="Exatamente um H1 por página.",
+            hint="Um título principal claro costuma facilitar a leitura e manutenção da página.",
         )
     elif page.h1_count == 0:
         _check(
             checks, issues,
             cid="seo.h1", label="H1 único", status="fail", weight=2.5,
             value="0",
-            hint="Exatamente um H1 por página.",
+            hint="Um título principal claro costuma facilitar a leitura e manutenção da página.",
             severity="high",
             title="Página sem H1",
             detail="Não foi encontrado nenhum H1, que é o título principal para buscadores.",
@@ -184,10 +201,10 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="seo.h1", label="H1 único", status="warn", weight=2.5,
             value=str(page.h1_count),
-            hint="Exatamente um H1 por página.",
+            hint="Um título principal claro costuma facilitar a leitura e manutenção da página.",
             severity="medium",
             title=f"Página com {page.h1_count} H1",
-            detail="H1s múltiplos diluem o tema principal da página.",
+            detail="Foram encontrados vários H1. Verifique se a estrutura mantém uma hierarquia clara; isso não prova perda de ranking.",
             fix="Mantenha um único H1 e rebaixe os demais para H2.",
             impact=6,
         )
@@ -252,10 +269,10 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
         cid="seo.viewport", label="Meta viewport (mobile)",
         status="pass" if page.has_viewport else "fail", weight=2.0,
         value="presente" if page.has_viewport else "ausente",
-        hint="Obrigatório para indexação mobile-first.",
+        hint="A configuração de viewport ajuda a apresentação em dispositivos móveis.",
         severity="high",
         title="Página sem meta viewport",
-        detail="Sem viewport, o Google classifica a página como não adaptada a mobile.",
+        detail="Não foi encontrada uma meta viewport. A usabilidade móvel precisa ser conferida no navegador.",
         fix='Adicione <meta name="viewport" content="width=device-width, initial-scale=1">.',
         impact=7,
     )
@@ -267,10 +284,10 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
         cid="seo.https", label="HTTPS",
         status="pass" if page.is_https else "fail", weight=2.0,
         value="sim" if page.is_https else "não",
-        hint="HTTPS é requisito de ranking e de confiança do usuário.",
+        hint="HTTPS protege a conexão e contribui para a confiança do usuário.",
         severity="high",
         title="Site sem HTTPS",
-        detail="A conexão não é criptografada, o que reduz confiança e ranking.",
+        detail="A URL final usa HTTP e não protege a conexão com TLS.",
         fix="Instale um certificado SSL (Let's Encrypt é gratuito) e redirecione HTTP para HTTPS.",
         impact=8,
     )
@@ -278,16 +295,9 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
     # ------------------------- Dados estruturados -------------------------
 
     _check(
-        checks, issues,
-        cid="seo.schema", label="Dados estruturados (JSON-LD)",
-        status="pass" if page.jsonld_types else "fail", weight=2.0,
+        checks, issues, cid="seo.schema", label="Dados estruturados (JSON-LD)", status="info", weight=0.0,
         value=", ".join(page.jsonld_types[:6]) or "nenhum",
-        hint="Ajuda buscadores e IAs a entender a entidade.",
-        severity="high",
-        title="Site sem dados estruturados",
-        detail="Nenhum bloco JSON-LD foi encontrado.",
-        fix="Adicione Schema.org (Organization, WebSite, BreadcrumbList) em JSON-LD.",
-        impact=8,
+        hint="Tipos observados em JSON-LD. Adicione dados estruturados somente quando apropriados; não são requisito de ranking ou citação. Não validamos todos os campos, Microdata ou RDFa.",
     )
 
     # ------------------------- Open Graph -------------------------
@@ -317,97 +327,63 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
     # ------------------------- Imagens -------------------------
 
     coverage = page.alt_coverage
+    missing_alt = max(0, page.images_total - page.images_with_alt - page.images_with_empty_alt)
+    alt_value = (
+        f"{page.images_with_alt} descritivos; {page.images_with_empty_alt} vazios; "
+        f"{missing_alt} sem atributo alt"
+    )
     if page.images_total == 0:
         _check(
-            checks, issues,
-            cid="seo.image_alt", label="Alt text das imagens", status="info", weight=1.5,
-            value="nenhuma imagem",
-            hint="Imagens sem alt são invisíveis para buscadores e IAs.",
+            checks, issues, cid="seo.image_alt", label="Alt text das imagens", status="info", weight=0.0,
+            value="nenhuma imagem", hint="Texto alternativo apoia acessibilidade. Imagens decorativas podem usar alt vazio.",
         )
-    elif coverage >= 0.9:
+    elif missing_alt == 0:
         _check(
-            checks, issues,
-            cid="seo.image_alt", label="Alt text das imagens", status="pass", weight=1.5,
-            value=f"{page.images_with_alt}/{page.images_total} ({coverage:.0%})",
-            hint="Imagens sem alt são invisíveis para buscadores e IAs.",
+            checks, issues, cid="seo.image_alt", label="Alt text das imagens", status="pass", weight=1.5,
+            value=alt_value,
+            hint="Todas as imagens declaram alt. Confirme manualmente se textos descrevem imagens informativas e se os atributos vazios correspondem a imagens decorativas.",
         )
     else:
         _check(
-            checks, issues,
-            cid="seo.image_alt", label="Alt text das imagens",
-            status="warn" if coverage >= 0.6 else "fail", weight=1.5,
-            value=f"{page.images_with_alt}/{page.images_total} ({coverage:.0%})",
-            hint="Imagens sem alt são invisíveis para buscadores e IAs.",
-            severity="medium",
-            title="Imagens sem texto alternativo",
-            detail=f"Apenas {page.images_with_alt} de {page.images_total} imagens têm alt.",
-            fix="Descreva cada imagem relevante no atributo alt.",
-            impact=4,
+            checks, issues, cid="seo.image_alt", label="Alt text das imagens",
+            status="warn" if coverage >= 0.6 else "fail", weight=1.5, value=alt_value,
+            hint="Atributo alt vazio pode ser intencional para decoração; atributo ausente precisa ser revisado.",
+            severity="medium", title="Imagens sem atributo alt",
+            detail=f"{missing_alt} de {page.images_total} imagens não declaram o atributo alt.",
+            fix="Descreva imagens informativas com alt útil e declare alt vazio nas imagens puramente decorativas.", impact=4,
         )
 
-    # ------------------------- robots.txt -------------------------
-
-    if site.robots_status == 200 and site.robots_txt:
-        _check(
-            checks, issues,
-            cid="seo.robots", label="robots.txt", status="pass", weight=1.5,
-            value="HTTP 200",
-            hint="Arquivo obrigatório para orientar crawlers.",
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="seo.robots", label="robots.txt", status="warn", weight=1.5,
-            value=f"HTTP {site.robots_status}" if site.robots_status else "não encontrado",
-            hint="Arquivo obrigatório para orientar crawlers.",
-            severity="medium",
-            title="robots.txt ausente",
-            detail="Não foi possível obter /robots.txt.",
-            fix="Publique um robots.txt declarando o sitemap e as regras de rastreamento.",
-            impact=3,
-        )
+    # A missing robots.txt does not prohibit crawling. Network failures are unknown.
+    robots_value = "válido (HTTP 200)" if site.robots_status == 200 and site.robots_txt is not None else (
+        "ausente (HTTP 404/410), sem bloqueio por este arquivo" if site.robots_status in {404, 410} else "não verificado"
+    )
+    _check(
+        checks, issues, cid="seo.robots", label="robots.txt", status="info", weight=0.0,
+        value=robots_value, hint="Arquivo opcional para orientar rastreamento. A permissão para esta URL é avaliada na seção GEO.",
+    )
 
     # ------------------------- Sitemap -------------------------
 
+    sitemap_found = site.sitemap_url_count > 0
+    sitemap_absent = site.sitemap_status in {404, 410}
     _check(
-        checks, issues,
-        cid="seo.sitemap", label="sitemap.xml",
-        status="pass" if site.sitemap_url_count > 0 else "fail", weight=2.0,
-        value=f"{site.sitemap_url_count} URLs" if site.sitemap_url_count else "não encontrado",
-        hint="Acelera a descoberta de páginas.",
-        severity="high",
-        title="Sitemap XML não encontrado",
-        detail="Não localizamos um sitemap válido na raiz do domínio.",
-        fix="Gere um sitemap.xml, publique na raiz e declare no robots.txt.",
-        impact=6,
+        checks, issues, cid="seo.sitemap", label="sitemap.xml",
+        status="pass" if sitemap_found else ("warn" if sitemap_absent else "info"),
+        weight=1.0 if sitemap_found or sitemap_absent else 0.0,
+        value=f"{site.sitemap_url_count} entradas loc" if sitemap_found else ("não encontrado (HTTP 404/410)" if sitemap_absent else "não verificado"),
+        hint="Sitemaps podem conter páginas ou referências a outros sitemaps. Ajudam na descoberta, mas não garantem indexação; falha de consulta não comprova ausência.",
+        severity="low", title="Sitemap não encontrado nos endereços consultados",
+        detail="Os endereços consultados responderam HTTP 404/410. Um sitemap pode existir em outro caminho e não é obrigatório para todas as páginas.",
+        fix="Se for útil para a descoberta do site, publique um sitemap válido e indique sua localização em robots.txt.", impact=2,
     )
 
     # ------------------------- Volume de conteúdo -------------------------
 
-    words = page.word_count
-    if words >= 600:
-        _check(
-            checks, issues,
-            cid="seo.word_count", label="Volume de conteúdo", status="pass", weight=1.5,
-            value=f"{words} palavras",
-            hint="Páginas de serviço costumam performar melhor acima de 600 palavras.",
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="seo.word_count", label="Volume de conteúdo",
-            status="warn" if words >= 300 else "fail", weight=1.5,
-            value=f"{words} palavras",
-            hint="Páginas de serviço costumam performar melhor acima de 600 palavras.",
-            severity="medium",
-            title="Conteúdo muito curto",
-            detail=f"A página tem aproximadamente {words} palavras.",
-            fix=(
-                "Amplie o conteúdo cobrindo as dúvidas reais do cliente (preço, prazo, "
-                "cobertura, diferenciais). Texto curto raramente é citado por IA."
-            ),
-            impact=5,
-        )
+    _check(
+        checks, issues, cid="seo.word_count", label="Volume de texto observado", status="info", weight=0.0,
+        value=f"{page.word_count} unidades de texto",
+        hint="Estimativa por palavras separadas e caracteres CJK. Não existe um mínimo universal para ranking ou citação; avalie a intenção da página sem preenchimento artificial.",
+    )
 
     # ------------------------- Links internos -------------------------
 
@@ -447,20 +423,20 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
     if page.elapsed_ms <= SLOW_MS:
         _check(
             checks, issues,
-            cid="seo.ttfb", label="Tempo de resposta", status="pass", weight=1.5,
+            cid="seo.request_time", label="Tempo total da requisição", status="pass", weight=1.5,
             value=f"{page.elapsed_ms} ms",
-            hint=f"Medido a partir do nosso servidor. Ideal < {SLOW_MS} ms.",
+            hint=f"Download do HTML e redirecionamentos a partir do scanner; referência de {SLOW_MS} ms. Não é TTFB nem Core Web Vitals.",
         )
     else:
         _check(
             checks, issues,
-            cid="seo.ttfb", label="Tempo de resposta",
+            cid="seo.request_time", label="Tempo total da requisição",
             status="warn" if page.elapsed_ms <= SLOW_MS * 2 else "fail", weight=1.5,
             value=f"{page.elapsed_ms} ms",
-            hint=f"Medido a partir do nosso servidor. Ideal < {SLOW_MS} ms.",
+            hint=f"Download do HTML e redirecionamentos a partir do scanner; referência de {SLOW_MS} ms. Não é TTFB nem Core Web Vitals.",
             severity="high" if page.elapsed_ms > SLOW_MS * 2 else "medium",
-            title="Tempo de resposta alto",
-            detail=f"A página levou {page.elapsed_ms} ms para responder.",
+            title="Tempo total da requisição elevado",
+            detail=f"A requisição completa levou {page.elapsed_ms} ms, incluindo transferência do HTML e eventuais redirecionamentos.",
             fix="Ative cache, CDN e compressão. Verifique a hospedagem no Brasil/LatAm.",
             impact=5,
         )

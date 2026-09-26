@@ -1,27 +1,21 @@
-"""GEO / AEO - o diferencial do produto.
-
-Pergunta central: "uma IA consegue ler, entender e CITAR este site?"
-
-Checagens divididas em 3 grupos:
-  1. Acesso       - a IA consegue entrar? (robots, llms.txt, indexabilidade)
-  2. Compreensão  - a IA entende a entidade e o conteúdo?
-  3. Citabilidade - o conteúdo merece ser citado? (dados, autoria, frescor)
-"""
+"""Single-page GEO readiness heuristics, not observed AI visibility."""
 
 from __future__ import annotations
+
+import re
 
 from ..models import Check, Issue, PageFacts, SiteFacts
 
 AREA = "geo"
 
-# Os bots que realmente decidem se o site aparece em resposta de IA.
+# Search crawlers have different purposes from training crawlers.
 KEY_BOTS: dict[str, str] = {
-    "gptbot": "GPTBot (ChatGPT)",
+    "googlebot": "Googlebot (Google Search)",
     "oai-searchbot": "OAI-SearchBot (ChatGPT Search)",
-    "claudebot": "ClaudeBot (Claude)",
     "perplexitybot": "PerplexityBot (Perplexity)",
-    "google-extended": "Google-Extended (AI Overviews)",
+    "claude-searchbot": "Claude-SearchBot (Claude Search)",
 }
+TRAINING_BOTS = {"gptbot", "claudebot", "google-extended", "applebot-extended", "ccbot"}
 
 RATIO_PASS, RATIO_WARN = 0.06, 0.02
 
@@ -65,208 +59,100 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
 
     # ===================== ACESSO =====================
 
-    blocked = [KEY_BOTS[b] for b in KEY_BOTS if site.ai_crawler_rules.get(b) == "block"]
-    partial = [KEY_BOTS[b] for b in KEY_BOTS if site.ai_crawler_rules.get(b) == "partial"]
-
-    if blocked:
+    robots_known = site.robots_status == 200 and site.robots_txt is not None
+    robots_absent = site.robots_status in {404, 410}
+    blocked = [KEY_BOTS[b] for b in KEY_BOTS if site.ai_crawler_rules.get(b) == "block"] if robots_known else []
+    partial = [KEY_BOTS[b] for b in KEY_BOTS if site.ai_crawler_rules.get(b) == "partial"] if robots_known else []
+    if not robots_known and not robots_absent:
         _check(
-            checks, issues,
-            cid="geo.ai_crawlers", label="Acesso dos bots de IA", status="fail", weight=4.0,
-            value="bloqueado: " + ", ".join(blocked),
-            hint="Se o robots.txt bloqueia um bot de IA, ele não pode citar seu site.",
-            severity="critical",
-            title="Bots de IA estão bloqueados no robots.txt",
-            detail="Bloqueados: " + ", ".join(blocked) + ". Estes agentes não conseguem ler o site.",
-            fix=(
-                "Remova as regras Disallow que atingem GPTBot, ClaudeBot, PerplexityBot, "
-                "OAI-SearchBot e Google-Extended. Sem isso, sua marca é invisível em resposta de IA."
-            ),
-            impact=20,
+            checks, issues, cid="geo.ai_crawlers", label="Permissão dos robôs de busca",
+            status="info", weight=0.0, value="não verificada",
+            hint="Não foi possível validar robots.txt. Falha de rede, resposta inválida ou HTTP de erro não comprovam permissão nem bloqueio.",
         )
-    elif partial:
+    elif blocked or partial:
         _check(
-            checks, issues,
-            cid="geo.ai_crawlers", label="Acesso dos bots de IA", status="warn", weight=4.0,
-            value="bloqueio parcial: " + ", ".join(partial),
-            hint="Bloqueios parciais podem esconder páginas importantes da IA.",
-            severity="high",
-            title="Rastreamento de IA parcialmente bloqueado",
-            detail="Regras Disallow atingem caminhos de " + ", ".join(partial) + ".",
-            fix=(
-                "Revise as regras Disallow: caminhos como /admin ou /checkout podem ser bloqueados, "
-                "mas as páginas de conteúdo, serviços e FAQ precisam ficar abertas para IA."
-            ),
-            impact=10,
-        )
-    elif site.robots_txt:
-        _check(
-            checks, issues,
-            cid="geo.ai_crawlers", label="Acesso dos bots de IA", status="pass", weight=4.0,
-            value="nenhum bot de IA bloqueado",
-            hint="Se o robots.txt bloqueia um bot de IA, ele não pode citar seu site.",
+            checks, issues, cid="geo.ai_crawlers", label="Permissão dos robôs de busca",
+            status="fail" if blocked else "warn", weight=4.0,
+            value=("bloqueado: " if blocked else "revisar caminhos: ") + ", ".join(blocked or partial),
+            hint="Avalia a permissão declarada para a URL analisada, sem testar o acesso real de cada serviço.",
+            severity="high", title="Robôs de busca com restrição declarada",
+            detail="Regras de robots.txt restringem: " + ", ".join(blocked or partial) + ".",
+            fix="Se esta página deve ser pública para busca, revise as regras aplicáveis ao seu caminho. Preserve restrições intencionais de áreas privadas.", impact=12,
         )
     else:
         _check(
-            checks, issues,
-            cid="geo.ai_crawlers", label="Acesso dos bots de IA", status="warn", weight=4.0,
-            value="robots.txt não encontrado",
-            hint="Sem robots.txt não há regra explícita, mas também não há sinal de abertura.",
-            severity="high",
-            title="robots.txt ausente: regras de IA indefinidas",
-            detail=(
-                "O site não publica robots.txt. Nada bloqueia a IA, mas também não existe "
-                "orientação explícita de acesso, e nenhum sitemap pode ser declarado."
-            ),
-            fix=(
-                "Publique um robots.txt permitindo explicitamente GPTBot, ClaudeBot, "
-                "PerplexityBot, OAI-SearchBot e Google-Extended, e declare o sitemap."
-            ),
-            impact=8,
+            checks, issues, cid="geo.ai_crawlers", label="Permissão dos robôs de busca",
+            status="pass", weight=4.0,
+            value="sem regras (HTTP 404/410)" if robots_absent else "sem bloqueio declarado para esta URL",
+            hint="Ausência de bloqueio em robots.txt não garante rastreamento, indexação ou citação.",
         )
 
-    has_llms = bool(site.llms_txt)
+    training = ", ".join(f"{bot}: {site.ai_crawler_rules.get(bot, 'unspecified')}" for bot in sorted(TRAINING_BOTS)) if robots_known else "não verificado"
     _check(
-        checks, issues,
-        cid="geo.llms_txt", label="llms.txt", status="pass" if has_llms else "fail", weight=3.0,
-        value="presente" if has_llms else "ausente",
-        hint="Padrão emergente para descrever o site diretamente para LLMs.",
-        severity="high",
-        title="Arquivo llms.txt ausente",
-        detail="Não encontramos /llms.txt na raiz do domínio.",
-        fix=(
-            "Publique /llms.txt com a descrição da empresa, principais páginas e as perguntas "
-            "que o site responde. É o equivalente do robots.txt para IA."
-        ),
-        impact=12,
+        checks, issues, cid="geo.training_bots", label="Preferências de uso e treinamento de IA",
+        status="info", weight=0.0, value=training,
+        hint="Permissões de treinamento são independentes da busca. Google-Extended controla usos do Gemini, não a inclusão no Google Search. Esta observação não altera a nota.",
+    )
+    _check(
+        checks, issues, cid="geo.llms_txt", label="llms.txt (opcional)", status="info", weight=0.0,
+        value="presente" if site.llms_status == 200 and site.llms_txt else ("ausente" if site.llms_status in {404, 410} else "não verificado"),
+        hint="Proposta opcional para orientar ferramentas compatíveis. Não é requisito de indexação nem garantia de uso ou citação por IA; não altera a nota.",
     )
 
-    robots_meta = (page.meta_robots or "").lower()
-    if "noindex" in robots_meta:
+    directives = {agent: set(values) for agent, values in page.robots_directives.items()}
+    # Preserve compatibility with facts supplied directly by callers.
+    generic = directives.setdefault("*", set())
+    generic.update(token for token in re.split(r"[,\s]+", (page.meta_robots or "").lower()) if token)
+    if "none" in generic:
+        generic.update(("noindex", "nofollow"))
+    relevant = {agent: generic | directives.get(agent, set()) for agent in KEY_BOTS}
+    noindex = [KEY_BOTS[agent] for agent, values in relevant.items() if "noindex" in values or "none" in values]
+    nosnippet = [KEY_BOTS[agent] for agent, values in relevant.items() if "nosnippet" in values or "max-snippet:0" in values]
+    nofollow = [KEY_BOTS[agent] for agent, values in relevant.items() if "nofollow" in values or "none" in values]
+    if noindex or nosnippet:
         _check(
-            checks, issues,
-            cid="geo.indexable", label="Indexabilidade", status="fail", weight=3.0,
-            value=page.meta_robots or "—",
-            hint="noindex impede qualquer aparição em busca e em IA.",
-            severity="critical",
-            title="Página marcada como noindex",
-            detail=f'meta robots = "{page.meta_robots}".',
-            fix="Remova o noindex da página principal do negócio.",
-            impact=18,
-        )
-    elif "nosnippet" in robots_meta:
-        _check(
-            checks, issues,
-            cid="geo.indexable", label="Indexabilidade", status="warn", weight=3.0,
-            value=page.meta_robots or "—",
-            hint="nosnippet reduz drasticamente o que a IA pode reproduzir de você.",
-            severity="high",
-            title="Página com nosnippet ativo",
-            detail=f'meta robots = "{page.meta_robots}".',
-            fix="Remova nosnippet se você quer ser citado em respostas de IA.",
-            impact=12,
+            checks, issues, cid="geo.indexable", label="Diretivas de indexação e trechos",
+            status="fail" if noindex else "warn", weight=3.0,
+            value=("noindex: " + ", ".join(noindex)) if noindex else ("restrição de trechos: " + ", ".join(nosnippet)),
+            hint="Diretivas observadas em meta tags e X-Robots-Tag; o suporte e os efeitos variam por serviço.",
+            severity="high", title="Página com diretiva restritiva de indexação" if noindex else "Página com restrição de trechos",
+            detail="Foram encontradas diretivas aplicáveis a robôs de busca. Este teste não consulta índices de busca.",
+            fix="Revise meta robots, meta tags específicas e X-Robots-Tag. Remova a restrição apenas se ela contrariar a intenção desta página pública.", impact=12,
         )
     else:
         _check(
-            checks, issues,
-            cid="geo.indexable", label="Indexabilidade", status="pass", weight=3.0,
-            value=page.meta_robots or "sem restrição",
-            hint="noindex impede qualquer aparição em busca e em IA.",
+            checks, issues, cid="geo.indexable", label="Diretivas de indexação e trechos",
+            status="pass", weight=3.0, value="sem restrição de indexação observada",
+            hint="A ausência de noindex não comprova indexação; robots.txt, autenticação e outros controles também podem limitar o acesso.",
         )
+    _check(
+        checks, issues, cid="geo.link_following", label="Diretiva de seguimento de links",
+        status="info", weight=0.0, value="nofollow: " + ", ".join(nofollow) if nofollow else "sem nofollow observado",
+        hint="nofollow diz respeito aos links da página; isoladamente, não impede a indexação desta URL.",
+    )
 
     # ===================== COMPREENSÃO =====================
 
     _check(
-        checks, issues,
-        cid="geo.entity", label="Entidade declarada (Schema)",
-        status="pass" if page.has_organization_schema else "fail", weight=3.0,
+        checks, issues, cid="geo.entity", label="Entidade declarada (Schema)", status="info", weight=0.0,
         value="Organization/LocalBusiness presente" if page.has_organization_schema else "ausente",
-        hint="Sem entidade explícita, a IA não sabe quem você é.",
-        severity="critical",
-        title="Entidade do negócio não está declarada",
-        detail="Nenhum schema Organization ou LocalBusiness foi encontrado.",
-        fix=(
-            "Adicione JSON-LD com @type Organization: name, url, logo, sameAs "
-            "(Instagram, LinkedIn, Google Business) e endereço. É isso que faz a IA "
-            "reconhecer você como entidade, e não como texto solto."
-        ),
-        impact=16,
+        hint="Declare uma organização apenas quando apropriado ao conteúdo. A ausência de Organization não impede compreensão ou citação e não altera a nota.",
     )
 
     q_count = len(page.question_headings)
     faq_sim = "sim" if page.has_faq_schema else "não"
-    if page.has_faq_schema and q_count >= 2:
-        _check(
-            checks, issues,
-            cid="geo.faq", label="Estrutura de perguntas e respostas", status="pass", weight=3.0,
-            value=f"{q_count} títulos-pergunta, FAQPage: {faq_sim}",
-            hint="IA responde perguntas; conteúdo em formato de pergunta casa direto com a consulta.",
-        )
-    elif page.has_faq_schema or q_count >= 3:
-        _check(
-            checks, issues,
-            cid="geo.faq", label="Estrutura de perguntas e respostas", status="warn", weight=3.0,
-            value=f"{q_count} títulos-pergunta, FAQPage: {faq_sim}",
-            hint="IA responde perguntas; conteúdo em formato de pergunta casa direto com a consulta.",
-            severity="medium",
-            title="Estrutura de FAQ incompleta",
-            detail=f"Encontrados {q_count} títulos em formato de pergunta e FAQPage schema: {faq_sim}.",
-            fix=(
-                "Complete a seção de FAQ com pelo menos 5 perguntas reais de clientes "
-                "e marque com FAQPage schema."
-            ),
-            impact=6,
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="geo.faq", label="Estrutura de perguntas e respostas", status="fail", weight=3.0,
-            value=f"{q_count} títulos-pergunta, FAQPage: {faq_sim}",
-            hint="IA responde perguntas; conteúdo em formato de pergunta casa direto com a consulta.",
-            severity="high",
-            title="Site não está estruturado em perguntas e respostas",
-            detail=f"Encontrados {q_count} títulos em formato de pergunta e FAQPage schema: {faq_sim}.",
-            fix=(
-                'Crie uma seção de FAQ com perguntas reais dos clientes (ex: "Quanto custa...?", '
-                '"Vocês atendem em...?") e marque com FAQPage schema.'
-            ),
-            impact=11,
-        )
+    _check(
+        checks, issues, cid="geo.faq", label="Perguntas e respostas observadas", status="info", weight=0.0,
+        value=f"{q_count} títulos-pergunta, FAQPage: {faq_sim}",
+        hint="Use perguntas e respostas quando ajudarem o leitor. FAQPage não é requisito de busca com IA e seus resultados especiais têm elegibilidade limitada; esta observação não altera a nota.",
+    )
 
-    intro_len = len(page.first_paragraph)
-    if 40 <= intro_len <= 400:
-        _check(
-            checks, issues,
-            cid="geo.answer_first", label="Resposta direta no início", status="pass", weight=2.5,
-            value=f"{intro_len} caracteres no primeiro parágrafo",
-            hint="IA extrai trechos; um resumo claro nos primeiros 400 caracteres é o que costuma ser citado.",
-        )
-    elif intro_len == 0:
-        _check(
-            checks, issues,
-            cid="geo.answer_first", label="Resposta direta no início", status="fail", weight=2.5,
-            value="nenhum parágrafo de conteúdo",
-            hint="IA extrai trechos; um resumo claro nos primeiros 400 caracteres é o que costuma ser citado.",
-            severity="high",
-            title="Conteúdo não responde de forma direta no início",
-            detail="Não encontramos um parágrafo de conteúdo com tamanho suficiente para ser citado.",
-            fix=(
-                "Comece a página com um parágrafo de 2 a 3 frases que responda objetivamente "
-                "à principal dúvida do cliente."
-            ),
-            impact=7,
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="geo.answer_first", label="Resposta direta no início", status="warn", weight=2.5,
-            value=f"{intro_len} caracteres no primeiro parágrafo",
-            hint="IA extrai trechos; um resumo claro nos primeiros 400 caracteres é o que costuma ser citado.",
-            severity="medium",
-            title="Primeiro parágrafo longo demais para citação",
-            detail=f"O primeiro parágrafo útil tem {intro_len} caracteres.",
-            fix="Divida a abertura em um resumo curto (2-3 frases) seguido do detalhamento.",
-            impact=4,
-        )
+    intro_len = page.first_paragraph_length or len(page.first_paragraph)
+    _check(
+        checks, issues, cid="geo.answer_first", label="Estrutura do primeiro parágrafo", status="info", weight=0.0,
+        value=f"{intro_len} caracteres no primeiro parágrafo" if intro_len else "nenhum parágrafo de conteúdo",
+        hint="Abertura observada no conteúdo principal quando identificado. Comprimento e presença de parágrafo dependem do idioma e do propósito; não medem qualidade nem alteram a nota.",
+    )
 
     ratio = page.text_html_ratio
     if ratio >= RATIO_PASS:
@@ -274,14 +160,14 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="geo.extractable", label="Conteúdo extraível", status="pass", weight=2.0,
             value=f"{ratio:.1%} do HTML é texto",
-            hint="Muito markup por pouco texto dificulta a leitura por LLM.",
+            hint="A proporção texto/HTML é uma heurística; não reproduz a extração de cada buscador ou modelo.",
         )
     elif ratio >= RATIO_WARN:
         _check(
             checks, issues,
             cid="geo.extractable", label="Conteúdo extraível", status="warn", weight=2.0,
             value=f"{ratio:.1%} do HTML é texto",
-            hint="Muito markup por pouco texto dificulta a leitura por LLM.",
+            hint="A proporção texto/HTML é uma heurística; não reproduz a extração de cada buscador ou modelo.",
             severity="medium",
             title="Proporção de texto útil baixa",
             detail=f"Apenas {ratio:.1%} do HTML é conteúdo textual legível.",
@@ -293,13 +179,12 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="geo.extractable", label="Conteúdo extraível", status="fail", weight=2.0,
             value=f"{ratio:.1%} do HTML é texto",
-            hint="Muito markup por pouco texto dificulta a leitura por LLM.",
+            hint="A proporção texto/HTML é uma heurística; não reproduz a extração de cada buscador ou modelo.",
             severity="high",
             title="Quase não há texto legível no HTML",
             detail=f"Apenas {ratio:.1%} do HTML é conteúdo textual legível.",
             fix=(
-                "O conteúdo provavelmente depende de JavaScript. Sirva o texto principal "
-                "em HTML no servidor para que crawlers de IA consigam lê-lo."
+                "Confira se o conteúdo principal aparece no HTML inicial. Uma proporção baixa, isoladamente, não prova dependência de JavaScript."
             ),
             impact=9,
         )
@@ -318,89 +203,26 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
         impact=4,
     )
 
-    blocks = page.list_count + page.table_count
-    if blocks >= 3:
-        _check(
-            checks, issues,
-            cid="geo.structured", label="Blocos estruturados (listas/tabelas)", status="pass",
-            weight=2.0,
-            value=f"{page.list_count} listas, {page.table_count} tabelas",
-            hint="Listas e tabelas são extraídas com muito mais precisão por LLMs.",
-        )
-    elif blocks >= 1:
-        _check(
-            checks, issues,
-            cid="geo.structured", label="Blocos estruturados (listas/tabelas)", status="warn",
-            weight=2.0,
-            value=f"{page.list_count} listas, {page.table_count} tabelas",
-            hint="Listas e tabelas são extraídas com muito mais precisão por LLMs.",
-            severity="low",
-            title="Poucos blocos estruturados",
-            detail=f"Encontradas {page.list_count} listas e {page.table_count} tabelas.",
-            fix="Converta comparações, passos e especificações em listas e tabelas.",
-            impact=3,
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="geo.structured", label="Blocos estruturados (listas/tabelas)", status="fail",
-            weight=2.0,
-            value=f"{page.list_count} listas, {page.table_count} tabelas",
-            hint="Listas e tabelas são extraídas com muito mais precisão por LLMs.",
-            severity="medium",
-            title="Conteúdo sem estrutura de lista ou tabela",
-            detail=f"Encontradas {page.list_count} listas e {page.table_count} tabelas.",
-            fix="Converta comparações, passos e especificações em listas e tabelas.",
-            impact=5,
-        )
+    _check(
+        checks, issues, cid="geo.structured", label="Blocos estruturados (listas/tabelas)", status="info", weight=0.0,
+        value=f"{page.list_count} listas, {page.table_count} tabelas",
+        hint="Use listas para passos e tabelas para comparações quando forem úteis. Nem toda página precisa desses formatos; esta observação não altera a nota.",
+    )
 
     # ===================== CITABILIDADE =====================
 
-    signals = page.number_signals
-    if signals >= 5:
-        _check(
-            checks, issues,
-            cid="geo.citation_signals", label="Sinais citáveis (dados concretos)", status="pass",
-            weight=2.5,
-            value=f"{signals} ocorrências numéricas",
-            hint="IA cita com mais frequência conteúdo com números, prazos e especificações.",
-        )
-    elif signals >= 2:
-        _check(
-            checks, issues,
-            cid="geo.citation_signals", label="Sinais citáveis (dados concretos)", status="warn",
-            weight=2.5,
-            value=f"{signals} ocorrências numéricas",
-            hint="IA cita com mais frequência conteúdo com números, prazos e especificações.",
-            severity="medium",
-            title="Poucos dados concretos no conteúdo",
-            detail=f"Encontradas {signals} ocorrências numéricas no texto.",
-            fix="Inclua prazos, preços, anos de experiência e percentuais de resultado.",
-            impact=5,
-        )
-    else:
-        _check(
-            checks, issues,
-            cid="geo.citation_signals", label="Sinais citáveis (dados concretos)", status="fail",
-            weight=2.5,
-            value=f"{signals} ocorrências numéricas",
-            hint="IA cita com mais frequência conteúdo com números, prazos e especificações.",
-            severity="high",
-            title="Conteúdo sem dados concretos",
-            detail=f"Encontrados {signals} números ou percentuais no texto.",
-            fix=(
-                "Inclua dados verificáveis: prazos, preços, anos de experiência, número de clientes, "
-                "percentuais de resultado. Trechos com dado concreto são os mais citados."
-            ),
-            impact=8,
-        )
+    _check(
+        checks, issues, cid="geo.citation_signals", label="Dados numéricos observados", status="info", weight=0.0,
+        value=f"{page.number_signals} ocorrências numéricas",
+        hint="Números podem ser preços, datas ou elementos de navegação. Esta contagem não verifica fontes, exatidão ou probabilidade de citação e não altera a nota.",
+    )
 
     _check(
         checks, issues,
-        cid="geo.author", label="Autoria (E-E-A-T)",
+        cid="geo.author", label="Autoria declarada",
         status="pass" if page.author_name else "warn", weight=2.0,
         value=page.author_name or "não declarada",
-        hint="Conteúdo assinado é mais confiável para IA e Google.",
+        hint="Autoria e credenciais verificáveis podem ajudar o leitor a avaliar a origem; esta checagem identifica apenas declarações.",
         severity="medium",
         title="Conteúdo sem autoria declarada",
         detail="Não encontramos autor no schema nem na página.",
@@ -411,10 +233,10 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
     freshness = page.date_modified or page.date_published
     _check(
         checks, issues,
-        cid="geo.freshness", label="Frescor do conteúdo",
+        cid="geo.freshness", label="Data declarada do conteúdo",
         status="pass" if freshness else "warn", weight=1.5,
         value=freshness or "sem data declarada",
-        hint="dateModified ajuda a IA a avaliar atualidade.",
+        hint="Registra a presença de uma data declarada; não verifica a atualização efetiva nem a exatidão do conteúdo.",
         severity="low",
         title="Conteúdo sem data de atualização",
         detail="Nenhum dateModified ou datePublished encontrado.",
@@ -435,7 +257,7 @@ def analyze(page: PageFacts, site: SiteFacts) -> tuple[list[Check], list[Issue]]
             checks, issues,
             cid="geo.schema_types", label="Tipos de entidade encontrados",
             status="info", weight=1.0, value=", ".join(page.jsonld_types[:8]),
-            hint="Quanto mais tipos declarados, melhor a IA entende o contexto.",
+            hint="Tipos encontrados no JSON-LD. Quantidade não mede qualidade; os dados devem refletir o conteúdo visível.",
         )
 
     return checks, issues

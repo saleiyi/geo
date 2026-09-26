@@ -35,9 +35,43 @@ _QUESTION_STARTS = (
     "where ",
     "who ",
     "which ",
+    "如何", "怎么", "什么", "为什么", "哪些", "多少", "何时", "哪里", "是否",
 )
 
 _DROP_TAGS = ("script", "style", "noscript", "template", "svg", "iframe")
+
+
+def _collect_robots(soup: BeautifulSoup, headers: dict[str, str]) -> tuple[str | None, str | None, dict[str, list[str]]]:
+    """Keep generic and agent-specific directives separate; restrictive rules combine."""
+    rules: dict[str, set[str]] = {}
+    generic_values: list[str] = []
+    known_directives = {"max-snippet", "max-image-preview", "max-video-preview", "unavailable_after"}
+
+    def add(agent: str, value: str) -> None:
+        value = re.sub(r"\s*:\s*", ":", value)
+        tokens = {part for part in re.split(r"[,\s]+", value.lower()) if part}
+        if "none" in tokens:
+            tokens.update(("noindex", "nofollow"))
+        rules.setdefault(agent, set()).update(tokens)
+
+    for tag in soup.find_all("meta", attrs={"name": True, "content": True}):
+        agent = str(tag["name"]).strip().lower()
+        if agent == "robots":
+            generic_values.append(_clean(tag["content"]))
+            add("*", str(tag["content"]))
+        elif agent in {"googlebot", "bingbot", "oai-searchbot", "perplexitybot", "claude-searchbot", "gptbot", "claudebot"}:
+            add(agent, str(tag["content"]))
+
+    header = next((value for key, value in headers.items() if key.lower() == "x-robots-tag"), None)
+    for header_line in (header or "").splitlines():
+        agent = "*"
+        for part in header_line.split(","):
+            part = part.strip().lower()
+            prefix = re.match(r"^([a-z*][a-z0-9_-]*)\s*:\s*(.*)$", part)
+            if prefix and prefix[1] not in known_directives:
+                agent, part = prefix[1], prefix[2]
+            add(agent, part)
+    return ", ".join(generic_values) or None, header, {key: sorted(value) for key, value in rules.items() if value}
 
 
 def _clean(value: str | None) -> str:
@@ -132,6 +166,7 @@ def parse_page(fetch: FetchResult) -> PageFacts:
     title_tag = soup.find("title")
     title = _clean(title_tag.get_text()) if title_tag else None
     description = _meta(soup, name="description")
+    meta_robots, x_robots_tag, robots_directives = _collect_robots(soup, fetch.headers)
 
     canonical_tag = soup.find("link", attrs={"rel": lambda v: v and "canonical" in v})
     canonical = _clean(canonical_tag.get("href")) if canonical_tag and canonical_tag.get("href") else None
@@ -158,22 +193,22 @@ def parse_page(fetch: FetchResult) -> PageFacts:
     twitter_card = _meta(soup, name="twitter:card")
 
     headings: list[tuple[int, str]] = []
-    for level in range(1, 7):
-        for tag in soup.find_all(f"h{level}"):
-            text = _clean(tag.get_text())
-            if text:
-                headings.append((level, text))
+    for tag in soup.find_all(re.compile(r"^h[1-6]$")):
+        text = _clean(tag.get_text())
+        if text:
+            headings.append((int(tag.name[1]), text))
 
     question_headings = [
         text
         for level, text in headings
-        if text.endswith("?") or text.lower().startswith(_QUESTION_STARTS)
+        if text.endswith(("?", "？")) or text.lower().startswith(_QUESTION_STARTS)
     ]
 
     schema_types, has_faq, has_org, has_breadcrumb, author, published, modified = _collect_jsonld_types(soup)
 
     images = soup.find_all("img")
     images_with_alt = [img for img in images if _clean(img.get("alt"))]
+    images_with_empty_alt = [img for img in images if img.has_attr("alt") and not _clean(img.get("alt"))]
 
     base_host = urlparse(fetch.final_url or fetch.url).netloc.lower()
     internal = external = 0
@@ -194,9 +229,10 @@ def parse_page(fetch: FetchResult) -> PageFacts:
     has_footer = bool(soup.find("footer"))
 
     first_paragraph = ""
-    for paragraph in soup.find_all("p"):
+    content_root = soup.find("main") or soup.find("article") or soup.body or soup
+    for paragraph in content_root.find_all("p"):
         text = _clean(paragraph.get_text())
-        if len(text) >= 40:
+        if text:
             first_paragraph = text
             break
 
@@ -208,7 +244,9 @@ def parse_page(fetch: FetchResult) -> PageFacts:
     for tag in body.find_all(_DROP_TAGS):
         tag.decompose()
     text = _clean(body.get_text(" "))
-    word_count = len([w for w in text.split(" ") if w])
+    # CJK does not use whitespace word boundaries; report approximate text units.
+    cjk_pattern = r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]"
+    word_count = len(re.findall(cjk_pattern, text)) + len(re.findall(r"\w+", re.sub(cjk_pattern, " ", text)))
 
     page_bytes = fetch.content_bytes or len(fetch.html or "")
     ratio = (len(text) / page_bytes) if page_bytes else 0.0
@@ -225,7 +263,9 @@ def parse_page(fetch: FetchResult) -> PageFacts:
         canonical=canonical,
         lang=lang,
         has_viewport=has_viewport,
-        meta_robots=_meta(soup, name="robots"),
+        meta_robots=meta_robots,
+        x_robots_tag=x_robots_tag,
+        robots_directives=robots_directives,
         hreflang=sorted(set(hreflang)),
         og_tags=sorted(set(og_tags)),
         twitter_card=twitter_card,
@@ -240,12 +280,14 @@ def parse_page(fetch: FetchResult) -> PageFacts:
         has_breadcrumb_schema=has_breadcrumb,
         images_total=len(images),
         images_with_alt=len(images_with_alt),
+        images_with_empty_alt=len(images_with_empty_alt),
         internal_links=internal,
         external_links=external,
         word_count=word_count,
-        text=text[:20000],
+        text=text,
         text_html_ratio=round(ratio, 4),
         first_paragraph=first_paragraph[:600],
+        first_paragraph_length=len(first_paragraph),
         has_main=has_main,
         has_article=has_article,
         has_nav=has_nav,

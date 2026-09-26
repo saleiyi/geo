@@ -6,7 +6,7 @@ from .models import AreaReport, Check, Issue, ScoreCard
 
 AREA_LABELS: dict[str, str] = {
     "seo": "SEO Técnico",
-    "geo": "Visibilidade em IA (GEO)",
+    "geo": "Preparação para busca com IA (GEO)",
     "content": "Inteligência de Conteúdo",
 }
 
@@ -57,21 +57,19 @@ def build_area(area: str, checks: list[Check], issues: list[Issue]) -> AreaRepor
 
 
 def _summary(overall: int, seo: int, geo: int) -> str:
-    gap = geo - seo
     if overall >= 80:
-        base = "Seu site está bem preparado tanto para a busca tradicional quanto para a IA."
+        base = "A página atende à maioria das verificações técnicas desta auditoria."
     elif overall >= 60:
-        base = "A base é sólida, mas há pontos claros que impedem a IA de citar seu site."
+        base = "A página tem uma base técnica aproveitável e pontos que merecem revisão."
     elif overall >= 40:
-        base = "Seu site aparece no Google, mas está praticamente invisível para IA."
+        base = "A página apresenta várias oportunidades de melhoria técnica e de estrutura do conteúdo."
     else:
-        base = "Seu site tem problemas estruturais que bloqueiam tanto o Google quanto a IA."
-
-    if gap <= -15:
-        base += " O maior gargalo está em GEO: falta a camada que as IAs leem."
-    elif gap >= 15:
-        base += " O SEO está pior que o GEO: priorize a base técnica primeiro."
-    return base
+        base = "A página apresenta lacunas nas verificações técnicas e de conteúdo aplicadas."
+    if geo - seo <= -15:
+        base += " Priorize as verificações de preparação para busca com IA."
+    elif geo - seo >= 15:
+        base += " Priorize as verificações de SEO técnico."
+    return base + " A nota é heurística e não comprova ranking, tráfego ou citações por IA."
 
 
 def build_scorecard(areas: list[AreaReport]) -> ScoreCard:
