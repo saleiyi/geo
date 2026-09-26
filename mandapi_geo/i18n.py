@@ -161,4 +161,3 @@ def localize_report(report: ScanReport, language: str) -> ScanReport:
     n = len(result.issues)
     result.score.summary = (f'本次单页诊断发现 {n} 项待检查问题。优先处理高优先级项目，并核实每项证据。评分不代表搜索排名或实际 AI 引用。' if zh else f'This single-page audit found {n} items to review. Start with high-priority issues and verify each finding. The score does not measure search rankings or actual AI citations.')
     return result
-
