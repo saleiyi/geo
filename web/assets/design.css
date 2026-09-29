@@ -1,0 +1,212 @@
+/* Visual alignment with the puchi-design/geo engineering interface.
+   Product copy, evidence and scan behavior remain owned by this application. */
+:root {
+  --paper: #0b0e14;
+  --white: #121620;
+  --ink: #f3f4f6;
+  --muted: #a5b2c5;
+  --line: #283143;
+  --green: #60a5fa;
+  --bright: #3156d9;
+  --pale: #161b26;
+  --dark: #0e121b;
+  --amber: #f59e0b;
+  --red: #f87171;
+  --shadow: 0 22px 65px #0005;
+  font-family: "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
+  color-scheme: dark;
+}
+body {background:var(--paper);color:var(--ink)}
+::selection {background:#3156d966;color:#fff}
+:focus-visible {outline-color:#60a5fa}
+a {color:#8bbaff}
+.muted,.small {color:var(--muted)}
+h1,h2,h3 {font-family:"Space Grotesk","Segoe UI",Arial,sans-serif}
+.eyebrow,.tiny-label,.feature-number,.step-number,.preview-bars,
+.area-card p,.report-meta dt,.article-meta,.footer-bottom {
+  font-family:"JetBrains Mono",Consolas,monospace;
+}
+.eyebrow {color:#75adff}
+.tiny-label {color:#9eabc0}
+.accent-text {color:#9eabc0}
+.skip-link {background:#3156d9;color:#fff}
+
+.site-header {position:sticky;top:0;z-index:40;background:#0d1017ed;border-color:#202636;backdrop-filter:blur(16px)}
+.header-inner {height:66px}
+.brand {color:#fff;font-size:18px}
+.brand-mark {background:#161b26;color:#f3f4f6;border:1px solid #2d3548;border-radius:5px;font-size:23px}
+.brand-mark>span {color:#60a5fa}
+.brand-geo {font-family:"JetBrains Mono",Consolas,monospace;color:#8bbaff;font-size:11px;letter-spacing:.04em;font-weight:700;background:#3156d930;border:1px solid #3156d966;border-radius:4px;padding:3px 6px}
+.main-nav a {color:#a5afc0;font-size:13px}
+.main-nav a:hover,.main-nav a[aria-current=page] {color:#fff}
+.language-switch {background:#161b26;border-color:#2d3548}
+.language-switch a {color:#b1bbcb;font-family:"JetBrains Mono",Consolas,monospace}
+.language-switch a[aria-current=page] {background:#3156d9;color:#fff}
+.button {border-radius:6px}
+.button-primary,.closing-card .button {background:#3156d9;border-color:#3156d9;color:#fff}
+.button-primary:hover,.closing-card .button:hover {background:#2546bc;border-color:#2546bc}
+.button-outline {background:#161b26;border-color:#2d3548;color:#f3f4f6}
+.button-outline:hover {background:#20283a;border-color:#50617f}
+.button-dark {background:#202b43;color:#fff}
+.button-dark:hover {background:#3156d9}
+
+/* A centered command bar and an inspection deck replace the old split hero. */
+.hero.container {
+  position:relative;isolation:isolate;display:flex;flex-direction:column;gap:40px;
+  width:100%;max-width:none;padding:76px max(32px,calc((100vw - 1192px)/2)) 72px;
+  overflow:hidden;background:#0d1017;border-bottom:1px solid #202636;text-align:center;
+}
+.hero:before {content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+  background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);
+  background-size:32px 32px}
+.hero:after {content:"";position:absolute;z-index:-1;top:-310px;left:50%;width:950px;height:650px;transform:translateX(-50%);
+  background:radial-gradient(ellipse,#3156d927,transparent 65%);pointer-events:none}
+.hero-copy {max-width:820px;margin-inline:auto}
+.hero .eyebrow {display:inline-flex;margin:0 0 22px;padding:7px 11px;border:1px solid #2d3548;border-radius:5px;background:#161b26;color:#8bbaff;font-family:"JetBrains Mono",Consolas,monospace;font-size:10px}
+.hero .eyebrow:before {content:"";width:7px;height:7px;align-self:center;border-radius:50%;background:#3156d9;box-shadow:0 0 0 3px #3156d930}
+.hero h1,html[lang=zh-CN] .hero h1,html[lang=en] .hero h1 {
+  max-width:820px;margin:0 auto 20px;color:#fff;font-size:clamp(39px,5vw,62px);
+  line-height:1.1;letter-spacing:-.05em
+}
+.hero-description,html[lang=zh-CN] .hero-description {max-width:665px;margin:0 auto 30px;color:#a6b1c4;font-size:17px;line-height:1.7}
+.scan-form {max-width:700px;margin-inline:auto}
+.scan-form label {color:#d9e1ee;text-align:left;font-family:"JetBrains Mono",Consolas,monospace;font-size:11px}
+.input-action {background:#fff;border:2px solid #fff;box-shadow:0 0 30px #3156d928}
+.input-action:focus-within {box-shadow:0 0 0 4px #3156d966,0 0 30px #3156d928}
+.input-icon {color:#3156d9;font-family:"JetBrains Mono",Consolas,monospace}
+.input-action input {color:#111318;font-family:"JetBrains Mono",Consolas,monospace;font-size:14px;color-scheme:light}
+.input-action input::placeholder {color:#758399}
+.input-action .button {padding:13px 20px}
+.form-note,.quota-note {justify-content:center;color:#aab7cb;font-family:"JetBrains Mono",Consolas,monospace}
+.field-error {color:#fca5a5;text-align:left}
+.hero-footnote {max-width:730px;margin:19px auto 0;color:#aab7cb}
+.hero-footnote a {color:#8bbaff}
+.hero-visual {width:min(100%,960px);margin:0 auto;padding:0;text-align:left}
+.visual-grid {display:none}
+.preview-card {position:relative;transform:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 28px;padding:0 28px 24px;
+  background:#141822;border:1px solid #2d3548;border-radius:11px;box-shadow:0 24px 70px #0008}
+.preview-card:before {content:"●  ●  ●";position:absolute;top:15px;left:20px;color:#657389;font-size:11px;letter-spacing:3px}
+.preview-top {grid-column:1/-1;min-height:52px;padding:10px 0 10px 77px;border-color:#283143;background:#0e1119;margin:0 -28px 0;padding-right:28px;padding-left:105px}
+.preview-top .tiny-label {color:#e4eaf4}
+.demo-pill {background:#2a2519;border:1px solid #645127;color:#f5cf83}
+.preview-domain {grid-column:1/-1;color:#fff;padding:20px 0 12px}
+.site-icon {background:#18243b;color:#8bbaff}
+.preview-caption,.preview-menu {color:#aab7cb}
+.preview-score {align-self:center}
+.preview-score-copy h2 {color:#fff;font-size:19px}
+.preview-score-copy p {color:#aab7cb}
+.score-ring {background:conic-gradient(#3156d9 calc(var(--score)*1%),#263044 0)}
+.score-ring>div {background:#141822}
+.score-ring strong {color:#fff}
+.score-ring strong>span,.score-ring>div>span {color:#aab7cb}
+.tag-green {background:#14372e;color:#8ae0b9}
+.preview-bars {align-self:center;display:grid;grid-template-columns:1fr;gap:8px;border:0;padding:0;color:#aab7cb}
+.preview-bars>div {color:#aab7cb;font-size:10px}
+.preview-bars strong {color:#f3f4f6}
+.mini-bar {background:#263044}
+.mini-bar i {background:#3156d9}
+.preview-finding {grid-column:1/-1;background:#0e1119;border-color:#2d3548}
+.finding-icon {background:#513b1b;color:#f5c96c}
+.preview-finding strong {color:#f3f4f6}
+.preview-finding p,.preview-finding>span:last-child {color:#aab7cb}
+.preview-link {grid-column:1/-1;color:#8bbaff}
+.preview-link:hover {color:#fff}
+.visual-note {color:#aab7cb;transform:none}
+
+.capability-strip {border-color:#202636;gap:12px}
+.capability-strip>span {color:#b6c1d2;font-family:"JetBrains Mono",Consolas,monospace;font-size:10px}
+.capability-strip>span>span {color:#8bbaff}
+.section {padding-top:84px;padding-bottom:84px}
+.section-heading>p,.section-intro {color:#aab7cb}
+.feature-grid {gap:14px}
+.feature-card,.explanation-grid article,.action-example,.area-card,.report-overview,.baseline-card,.priority-card,.diff-count,.diff-item,.issue-card,.check-list,.comparison-section,.privacy-operator {
+  background:#121620;border-color:#2b3548;box-shadow:none
+}
+.feature-card {border-radius:9px}
+.feature-icon {background:#18243b;color:#8bbaff;border-color:#34425e}
+.feature-number {color:#8a9cba}
+.feature-card p,.feature-card h2,.explanation-grid p,.steps p,.faq-list details p,
+.article-body p,.article-body li,.article-table td,.action-example dd,.report-scope,
+.issue-card p,.check-evidence dd,.priority-card p,.diff-evidence p {color:#b2bfd1}
+.clean-list {border-color:#2b3548;color:#b2bfd1}
+.clean-list li:before {color:#60a5fa}
+.how-section {background:#0e121b;border-color:#202636}
+.step-number {background:#18243b;border-color:#34425e;color:#8bbaff;border-radius:6px}
+.text-link,.how-layout .text-link {color:#8bbaff}
+.faq-list details,.faq-list details:first-child {border-color:#2b3548}
+.faq-list summary>span {color:#8bbaff}
+.closing-card {background:#111b32;border-color:#35466c}
+.closing-card .eyebrow,.closing-card p.muted {color:#aebfe0}
+.site-footer {background:#090c12;border-color:#202636}
+.footer-top nav a,.footer-top p,.footer-bottom {color:#aab7cb}
+
+/* Real scan output uses the same palette without changing evidence semantics. */
+.scan-feedback .feedback-inner {background:#142434;border-color:#2d4967}
+.scan-feedback[data-state=error] .feedback-inner {background:#311d25;border-color:#754454}
+.report-section,.baseline-section,.comparison-section,.top-priorities-section {color:#f3f4f6}
+.report-overview,.baseline-card {border-radius:10px}
+.report-meta {border-color:#2b3548}
+.report-meta dt,.baseline-meta dt,.comparison-meta dt {color:#9eabc0}
+.area-card .mini-bar {background:#263044}
+.area-card p,.issue-card .issue-fix,.check-evidence dt,.action-example dt {color:#8bbaff}
+.report-block-heading p,.report-engine,.baseline-consent,.comparison-details>p.small {color:#aab7cb}
+.filters label {color:#aab7cb}
+.filters select {background:#141b29;border-color:#33415b;color:#f3f4f6}
+.count-badge,.area-tag {background:#1e2b43;color:#a9c8ff}
+.severity-tag {background:#293445;color:#c5d2e4}
+.issue-card[data-severity=critical] .severity-tag {background:#4b222b;color:#ffb5bd}
+.issue-card[data-severity=high] .severity-tag {background:#4e351c;color:#ffd391}
+.issue-card[data-severity=medium] .severity-tag {background:#423e1c;color:#f6e69b}
+.check-item {border-color:#2b3548}
+.check-status {background:#263044;color:#c5d2e4}
+.check-status[data-status=pass] {background:#153a32;color:#8ae0b9}
+.check-status[data-status=warn] {background:#503a1c;color:#ffdb97}
+.check-status[data-status=fail] {background:#4b222b;color:#ffb5bd}
+.empty-state,.notice,.diff-evidence {background:#151e2c;border-color:#34425e;color:#b8c7dc}
+.delta-card {background:#152948;border-color:#344d77}
+.demo-banner {background:#3b2d1b;border-color:#6b512a;color:#ffe1a9}
+.demo-banner a {color:#ffe1a9}
+.article-shell {color:#f3f4f6}
+.article-sidebar,.article-sidebar a,.article-lead,.article-meta {color:#aab7cb}
+.article-sidebar a[aria-current=page] {color:#8bbaff}
+.article-header,.article-body .article-cta {border-color:#2b3548}
+.article-body strong {color:#e4ebf5}
+.article-body code {background:#1e2b43;color:#c8d9ff}
+.article-table th {background:#1b263b}
+.article-table th,.article-table td {border-color:#35415a}
+.article-cta {background:#15243d;border-color:#35466c}
+.privacy-operator dt {color:#aab7cb}
+
+@media(max-width:850px) {
+  .hero.container {max-width:none;padding:62px 28px 60px}
+  .hero-visual {max-width:760px}
+  .preview-card {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+@media(max-width:600px) {
+  .header-inner {height:60px}
+  .brand {font-size:16px}
+  .hero.container {padding:45px 20px 48px;gap:28px}
+  .hero h1,html[lang=zh-CN] .hero h1,html[lang=en] .hero h1 {font-size:clamp(35px,9vw,45px)}
+  .hero-description {font-size:14px}
+  .input-action {display:flex;flex-wrap:wrap}
+  .input-action input {min-height:44px}
+  .input-action .button {width:100%;justify-content:center}
+  .form-note {font-size:10px}
+  .preview-card {display:block;padding:0 16px 18px}
+  .preview-top {margin:0 -16px;padding-left:78px;padding-right:16px;min-height:60px}
+  .preview-card:before {left:14px;top:19px}
+  .preview-score {justify-content:center}
+  .preview-bars {grid-template-columns:repeat(3,1fr);padding:15px 0;border-top:1px solid #283143}
+  .preview-bars>div {font-size:8px}
+  .feature-grid {grid-template-columns:1fr}
+}
+@media print {
+  :root {color-scheme:light}
+  body {background:#fff;color:#111}
+  .report-section,.comparison-section,.top-priorities-section {color:#111}
+  .report-overview,.area-card,.issue-card,.check-list,.diff-item,.diff-evidence,.priority-card,.delta-card,.diff-count {background:#fff;border-color:#bbb;color:#111}
+  .report-overview h3,.area-card h3,.issue-card h4,.check-item summary,.diff-item summary,.diff-group h4,.priority-card h4 {color:#111}
+  .issue-card p,.check-evidence dd,.priority-card p,.diff-evidence p,.report-scope {color:#333}
+  .score-ring>div {background:#fff}
+  .score-ring strong {color:#111}
+}
