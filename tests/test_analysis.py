@@ -196,5 +196,7 @@ def test_report_and_llm_prompt_describe_evidence_limits():
     assert "não medem ranking" in markdown
     assert "rules-v2" in markdown
     assert "Não invente números, perdas de clientes" in prompt
+    assert "Write in English." in _build_prompt(report, "en")
+    assert "Write in Simplified Chinese." in _build_prompt(report, "zh-CN")
     assert "praticamente invisível" not in report.score.summary
     assert "pontos recuperáveis" not in markdown or "não representa pontos recuperáveis" in markdown

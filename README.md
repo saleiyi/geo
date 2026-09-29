@@ -66,7 +66,7 @@ HTML 文件随仓库提供；编辑页面生成源后运行 `.venv\Scripts\pytho
 .venv\Scripts\python.exe -m mandapi_geo.cli https://example.com/ --json reports/example.json
 ```
 
-CLI 的 `--llm` 为可选葡萄牙语摘要，需要自行配置 `LLM_API_KEY` 与服务地址，可能产生服务商费用。公开 API 的 `ai_summary` 默认关闭；只有 `PUBLIC_AI_SUMMARY=true` 且请求语言为 `pt-BR` 时允许开启。LLM 摘要不增加搜索排名或引用测量能力。
+CLI 的 `--llm` 为可选葡萄牙语摘要，需要自行配置 `LLM_API_KEY`、`LLM_BASE_URL` 与可用的 `LLM_MODEL`，可能产生服务商费用。网站的 AI 摘要默认关闭；仅当配置了 Key 并设置 `PUBLIC_AI_SUMMARY=true` 时，葡语、英语、中文页面才显示默认未勾选的自愿启用选项。选择后报告数据会发送给配置的模型服务商；模型失败不影响规则报告。LLM 摘要不增加搜索排名或引用测量能力。不要把 Key 写入 Git 仓库或前端资源。
 
 ## 验证与部署
 

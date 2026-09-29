@@ -119,17 +119,23 @@ async def response_headers(request: Request, call_next):
 def health() -> dict[str, str]:
     return {"status": "ok", "engine": "rules-v2"}
 
+@app.get("/api/capabilities")
+def capabilities() -> dict[str, bool]:
+    settings = load_settings()
+    return {"ai_summary": settings.public_ai_summary and settings.llm_enabled}
+
 @app.post("/api/scan", response_model=ScanReport)
 def api_scan(payload: ScanIn, request: Request) -> ScanReport:
     try:
         target = normalize_url(payload.url)
     except ValueError as exc:
         raise HTTPException(400, message("invalid_url", payload.language)) from exc
-    if payload.ai_summary and (not load_settings().public_ai_summary or payload.language != "pt-BR"):
+    settings = load_settings()
+    if payload.ai_summary and not (settings.public_ai_summary and settings.llm_enabled):
         raise HTTPException(400, message("ai_disabled", payload.language))
     gate.enter(request.client.host if request.client else "unknown", payload.language)
     try:
-        report = scan(target, keyword=payload.keyword, ai_summary=payload.ai_summary)
+        report = scan(target, keyword=payload.keyword, ai_summary=payload.ai_summary, language=payload.language)
         return localize_report(report, payload.language)
     except ValueError as exc:
         raise HTTPException(400, message("invalid_url", payload.language)) from exc

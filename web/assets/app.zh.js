@@ -19,6 +19,14 @@
   let comparison = null;
   let storedBaselinePresent = false;
   let baselineMutation = 0;
+  let aiSummaryAvailable = false;
+  fetch('/api/capabilities', { headers:{ 'Accept':'application/json' } })
+    .then((response) => response.ok ? response.json() : null)
+    .then((data) => {
+      aiSummaryAvailable = data?.ai_summary === true;
+      $('ai-option').hidden = !aiSummaryAvailable;
+    })
+    .catch(() => {});
   const DIFF_LABELS = { resolved:'本次检查已解决', new_issues:'新增问题', persistent:'仍然存在', unverified:'无法确认', worsened:'变得更严重', improved:'严重程度降低' };
   const COMPARE_REASONS = {
     missing_version:'此旧报告缺少必要版本信息，请重新分析页面以建立兼容基线。',
@@ -175,6 +183,9 @@
     $('report-ring').style.setProperty('--score', score(report.score.overall));
     $('report-domain').textContent = plain(report.domain, '已分析页面');
     $('report-summary').textContent = plain(report.score.summary, '请查看每项检查的证据来理解分数。');
+    const summary = !demo && typeof report.ai_summary === 'string' ? report.ai_summary.trim() : '';
+    $('ai-summary-panel').hidden = !summary;
+    $('ai-summary-content').replaceChildren(...(summary ? summary.split(/\n\s*\n/).filter(Boolean).map((paragraph) => node('p', '', paragraph.trim())) : []));
     $('report-url').textContent = plain(report.target_url);
     $('report-final-url').textContent = plain(report.facts?.final_url, report.target_url);
     $('report-date').textContent = demo ? '虚构日期 · 演示示例' : `${dateLabel(report.scanned_at)} （本地时间）`;
@@ -224,7 +235,8 @@
     let timedOut = false;
     const timeout = window.setTimeout(() => { timedOut = true; requestController.abort(); }, 120000);
     try {
-      const response = await fetch('/api/scan', { method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' }, body:JSON.stringify({ url, ai_summary:false, language:document.documentElement.lang }), signal:requestController.signal });
+      const requestedAiSummary = aiSummaryAvailable && $('ai-summary-opt-in').checked;
+      const response = await fetch('/api/scan', { method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' }, body:JSON.stringify({ url, ai_summary:requestedAiSummary, language:document.documentElement.lang }), signal:requestController.signal });
       let data;
       try { data = await response.json(); } catch {
         if (requestController.signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -232,7 +244,7 @@
       }
       if (!response.ok) throw new Error(errorMessage(data, response.status));
       if (!data || !data.score || !Array.isArray(data.areas) || !Array.isArray(data.issues)) throw new Error('收到的报告不完整，请重新分析。');
-      showStatus('success', '分析完成，报告已准备好。', '查看证据并下载副本，便于之后对比。');
+      showStatus('success', '分析完成，报告已准备好。', requestedAiSummary && !data.ai_summary ? '本次 AI 服务未返回摘要。技术诊断和检查证据仍可查看。' : '查看证据并下载副本，便于之后对比。');
       renderReport(data);
     } catch (error) {
       if (error.name === 'AbortError') {

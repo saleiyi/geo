@@ -20,7 +20,7 @@ class ScanError(RuntimeError):
     """Falha ao obter ou processar a página. A mensagem é exibida ao usuário."""
 
 
-def scan(url: str, keyword: str | None = None, ai_summary: bool = False) -> ScanReport:
+def scan(url: str, keyword: str | None = None, ai_summary: bool = False, language: str = "pt-BR") -> ScanReport:
     started = time.perf_counter()
     target = normalize_url(url)
 
@@ -55,9 +55,10 @@ def scan(url: str, keyword: str | None = None, ai_summary: bool = False) -> Scan
     )
 
     if ai_summary:
+        from .i18n import localize_report
         from .report import generate_ai_summary
 
-        summary = generate_ai_summary(report)
+        summary = generate_ai_summary(localize_report(report, language), language=language)
         if summary:
             report.ai_summary = summary
             report.engine = "rules-v2+llm"

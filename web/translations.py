@@ -2,6 +2,11 @@
 
 # Every tuple is Portuguese, English, Simplified Chinese.
 HOME = [
+("Gerar também um resumo por IA","Also generate an AI summary","同时生成 AI 摘要"),
+("Opcional: envia dados deste relatório ao provedor de IA configurado. O diagnóstico técnico funciona sem isso.","Optional: sends this report’s data to the configured AI provider. The technical audit works without it.","可选：将本报告数据发送给配置的 AI 服务商。技术分析无需此功能。"),
+("INTERPRETAÇÃO OPCIONAL","OPTIONAL INTERPRETATION","可选解读"),
+("Resumo gerado por IA","AI-generated summary","AI 生成的摘要"),
+("Confira cada afirmação nas evidências abaixo. Este texto não mede rankings, tráfego ou citações reais.","Check each claim against the evidence below. This text does not measure rankings, traffic, or real citations.","请用下方证据核对每项说法。此文本不测量排名、流量或真实引用。"),
 ("ANÁLISE DE PÁGINA SEO + GEO","SEO + GEO PAGE CHECKER","SEO + GEO 页面分析"),
 ("Ferramenta de auditoria de página SEO e GEO.","SEO and GEO page audit tool.","SEO 与 GEO 页面检测工具。"),
 ("Confira SEO técnico, preparação para busca com IA e estrutura do conteúdo em uma análise. Receba evidências e uma lista do que corrigir primeiro.","Check technical SEO, AI search readiness, and content structure in one audit. Get evidence and a prioritized list of what to fix first.","一次检查技术 SEO、AI 搜索准备度和内容结构，提供检查证据，并告诉你下一步最值得先改什么。"),
@@ -55,6 +60,7 @@ ATTRIBUTES = [
 ]
 
 JS = [
+("A IA não respondeu nesta análise. O diagnóstico técnico e as evidências estão disponíveis.","The AI provider did not respond for this audit. The technical findings and evidence are available.","本次 AI 服务未返回摘要。技术诊断和检查证据仍可查看。"),
 ("A referência não contém evidência suficiente para classificar este problema como novo ou como uma piora.","The baseline lacks enough evidence to classify this issue as new or as a regression.","基线中的证据不足，不能把此问题认定为新增问题或退化。"),
 ("Exemplo ilustrativo de verificações do HTML: tamanho da descrição, autoria declarada e estrutura semântica. As notas e os valores são fictícios.","Illustrative HTML checks: description length, declared authorship, and semantic structure. Scores and values are fictional.","HTML 检查演示：描述长度、声明的作者信息和语义结构。分数与检测值均为虚构。"),
 ("Comprimento da meta description","Meta description length","Meta description 长度"),("30 caracteres; página em português (exemplo fictício).","30 characters; Portuguese page (fictional example).","30 个字符；葡语页面（虚构示例）。"),("O comprimento é uma referência editorial, não uma avaliação do significado ou da qualidade da descrição.","Length is an editorial guideline, not an assessment of the description’s meaning or quality.","长度只是编辑参考，不代表对描述含义或质量的判断。"),("Autoria declarada no HTML","Declared authorship in HTML","HTML 中声明的作者信息"),("Nenhuma declaração de autor encontrada (exemplo fictício).","No author declaration found (fictional example).","未找到声明的作者信息（虚构示例）。"),("Confira se uma identificação de autoria apropriada está presente no HTML. Esta verificação não valida credenciais.","Check whether suitable author identification is present in the HTML. This check does not verify credentials.","检查 HTML 中是否有适当的作者标识，此检查不会核实资质。"),("Proporção de texto no HTML","Text-to-HTML ratio","HTML 中文本的占比"),("8,2% do HTML é texto (exemplo fictício).","Text accounts for 8.2% of HTML (fictional example).","文本占 HTML 的 8.2%（虚构示例）。"),("A proporção é uma heurística estrutural; não mede compreensão do tema ou probabilidade de citação.","The ratio is a structural heuristic; it does not measure topic understanding or citation probability.","这一占比是结构性启发指标，不衡量主题理解程度或引用概率。"),("HTML semântico","Semantic HTML","语义 HTML"),("Nenhuma tag <main> ou <article> encontrada (exemplo fictício).","No <main> or <article> tag found (fictional example).","未找到 <main> 或 <article> 标签（虚构示例）。"),("Use elementos semânticos apropriados para identificar o conteúdo principal, sem alterar sua informação apenas para obter pontos.","Use suitable semantic elements to identify the main content, without changing information merely to earn points.","用合适的语义元素标明主要内容，不要仅为了得分而改变信息。"),

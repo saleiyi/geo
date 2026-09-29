@@ -152,6 +152,7 @@ def test_scanner_failure_releases_slot_and_localizes(client, monkeypatch):
 
 
 def test_request_limits_and_paid_summary_guard(client):
+    assert client.get('/api/capabilities').json() == {'ai_summary': False}
     r = client.post('/api/scan',content='x'*8193)
     assert r.status_code == 413
     assert r.headers['cache-control'] == 'no-store'
@@ -159,6 +160,28 @@ def test_request_limits_and_paid_summary_guard(client):
     assert client.post('/api/scan',json={'url':'https://example.com','ai_summary':True}).status_code == 400
     assert client.post('/api/scan',json={'url':'https://example.com','language':'bogus'}).status_code == 422
     assert client.post('/api/scan',json={'url':'x'*2049}).status_code == 422
+
+
+@pytest.mark.parametrize('language', ['pt-BR', 'en', 'zh-CN'])
+def test_opted_in_summary_requires_config_and_passes_locale(client, monkeypatch, language):
+    monkeypatch.setenv('PUBLIC_AI_SUMMARY', 'true')
+    monkeypatch.setenv('LLM_API_KEY', 'synthetic-test-key')
+    load_settings.cache_clear()
+    assert client.get('/api/capabilities').json() == {'ai_summary': True}
+    calls = []
+    def fake_scan(*args, **kwargs):
+        calls.append(kwargs)
+        report = fixture_report()
+        report.ai_summary = 'Synthetic provider response'
+        report.engine = 'rules-v2+llm'
+        return report
+    monkeypatch.setattr(api, 'scan', fake_scan)
+    response = client.post('/api/scan', json={
+        'url': 'https://example.com/', 'language': language, 'ai_summary': True
+    })
+    assert response.status_code == 200
+    assert response.json()['ai_summary'] == 'Synthetic provider response'
+    assert calls == [{'keyword': None, 'ai_summary': True, 'language': language}]
 
 
 def test_scan_gate_busy_does_not_spend_quota(client):

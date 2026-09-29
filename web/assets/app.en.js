@@ -19,6 +19,14 @@
   let comparison = null;
   let storedBaselinePresent = false;
   let baselineMutation = 0;
+  let aiSummaryAvailable = false;
+  fetch('/api/capabilities', { headers:{ 'Accept':'application/json' } })
+    .then((response) => response.ok ? response.json() : null)
+    .then((data) => {
+      aiSummaryAvailable = data?.ai_summary === true;
+      $('ai-option').hidden = !aiSummaryAvailable;
+    })
+    .catch(() => {});
   const DIFF_LABELS = { resolved:'Resolved in this check', new_issues:'New issues', persistent:'Still present', unverified:'Unverified', worsened:'Worsened', improved:'Improved' };
   const COMPARE_REASONS = {
     missing_version:'This older report lacks required version information. Recheck the page to create a compatible baseline.',
@@ -175,6 +183,9 @@
     $('report-ring').style.setProperty('--score', score(report.score.overall));
     $('report-domain').textContent = plain(report.domain, 'Audited page');
     $('report-summary').textContent = plain(report.score.summary, 'Inspect each check’s evidence to interpret the score.');
+    const summary = !demo && typeof report.ai_summary === 'string' ? report.ai_summary.trim() : '';
+    $('ai-summary-panel').hidden = !summary;
+    $('ai-summary-content').replaceChildren(...(summary ? summary.split(/\n\s*\n/).filter(Boolean).map((paragraph) => node('p', '', paragraph.trim())) : []));
     $('report-url').textContent = plain(report.target_url);
     $('report-final-url').textContent = plain(report.facts?.final_url, report.target_url);
     $('report-date').textContent = demo ? 'Fictional date · demonstration' : `${dateLabel(report.scanned_at)} (local time)`;
@@ -224,7 +235,8 @@
     let timedOut = false;
     const timeout = window.setTimeout(() => { timedOut = true; requestController.abort(); }, 120000);
     try {
-      const response = await fetch('/api/scan', { method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' }, body:JSON.stringify({ url, ai_summary:false, language:document.documentElement.lang }), signal:requestController.signal });
+      const requestedAiSummary = aiSummaryAvailable && $('ai-summary-opt-in').checked;
+      const response = await fetch('/api/scan', { method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' }, body:JSON.stringify({ url, ai_summary:requestedAiSummary, language:document.documentElement.lang }), signal:requestController.signal });
       let data;
       try { data = await response.json(); } catch {
         if (requestController.signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -232,7 +244,7 @@
       }
       if (!response.ok) throw new Error(errorMessage(data, response.status));
       if (!data || !data.score || !Array.isArray(data.areas) || !Array.isArray(data.issues)) throw new Error('The received report is incomplete. Please run a new audit.');
-      showStatus('success', 'Audit complete. Your report is ready.', 'Review the evidence and download a copy for later comparison.');
+      showStatus('success', 'Audit complete. Your report is ready.', requestedAiSummary && !data.ai_summary ? 'The AI provider did not respond for this audit. The technical findings and evidence are available.' : 'Review the evidence and download a copy for later comparison.');
       renderReport(data);
     } catch (error) {
       if (error.name === 'AbortError') {
